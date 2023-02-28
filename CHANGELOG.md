@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [unreleased]
+
+**Documentation**
+
+- Fix code sample indentation ([3b2b1f5](https://github.com/gabor-boros/arangom/commit/3b2b1f5210e4fcc6531dc5411a8ce0ac6e7005da))
+
 ## [0.1.0] - 2023-02-28
 
 **Features**
