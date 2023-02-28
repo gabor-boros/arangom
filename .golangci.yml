@@ -1,0 +1,31 @@
+linters:
+  disable-all: true
+  enable:
+    # default
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    # custom enabled
+    - contextcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - goconst
+    - gocritic
+    - gofmt
+    - gosec
+    - importas
+    - makezero
+    - nlreturn
+    - noctx
+    - prealloc
+    - revive
+linters-settings:
+  goconst:
+    ignore-tests: true
+  nlreturn:
+    block-size: 7

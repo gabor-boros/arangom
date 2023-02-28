@@ -1,0 +1,14 @@
+# Editors
+.idea/
+.vscode/
+.fleet/
+
+# binaries
+bin/
+
+# Coverage data
+*.out
+coverage.html
+
+# Misc
+vendor/
