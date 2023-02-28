@@ -135,10 +135,10 @@ func main() {
 
 	db, _ := client.Database(context.Background(), os.Getenv("ARANGO_DB"))
 
-    migrations := []*arangom.Migration{
-        {
-        	Path:       "0001.initial", // any unique identifier
-        	Operations: []arangom.Operation{
+	migrations := []*arangom.Migration{
+		{
+			Path:       "0001.initial", // any unique identifier
+			Operations: []arangom.Operation{
 				{
 					Kind:       arangom.OperationKindCollectionCreate,
 					Collection: os.Getenv("ARANGO_MIGRATION_COLLECTION"),
@@ -147,11 +147,11 @@ func main() {
 					},
 				},
 			},
-        },
-    }
+		},
+	}
 
 	executor, _ := arangom.NewExecutor(
-        arangom.WithDatabase(db),
+		arangom.WithDatabase(db),
 		arangom.WithCollection(os.Getenv("ARANGO_MIGRATION_COLLECTION")),
 		arangom.WithMigrations(migrations),
 	)
