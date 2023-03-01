@@ -85,10 +85,10 @@ type MigrationItem struct {
 
 // Migration is a migration that can be run on a database.
 type Migration struct {
-	ID         int
-	Path       string
-	Status     MigrationStatus
-	Operations []*Operation `yaml:"operations"`
+	ID         int             `yaml:"id"`
+	Path       string          `yaml:"-"`
+	Status     MigrationStatus `yaml:"-"`
+	Operations []*Operation    `yaml:"operations"`
 }
 
 // Name returns the name of the migration. The name is the name of the file
