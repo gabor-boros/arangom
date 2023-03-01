@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 
 - Only consider YAML when loading migrations ([a5ad54e](https://github.com/gabor-boros/arangom/commit/a5ad54e759526faf9c1b794dcf810a1e8da70a74))
 
+**Refactor**
+
+- Add yaml tags for migration ([39a7926](https://github.com/gabor-boros/arangom/commit/39a79269f4245fc19b4998f5e4c3fcbff4ec3598))
+
 ## [0.1.0] - 2023-02-28
 
 **Features**
