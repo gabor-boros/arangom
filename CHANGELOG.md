@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 **Features**
 
-- Only consider YAML when loading migrations ([76c3b5c](https://github.com/gabor-boros/arangom/commit/76c3b5c05f41c95c8b4197ad61e91579b4d741d3))
+- Only consider YAML when loading migrations ([a5ad54e](https://github.com/gabor-boros/arangom/commit/a5ad54e759526faf9c1b794dcf810a1e8da70a74))
 
 ## [0.1.0] - 2023-02-28
 
