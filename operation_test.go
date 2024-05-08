@@ -2721,3 +2721,181 @@ func TestDeleteIndexOperation(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateAnalyzerOperation(t *testing.T) {
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  driver.Database
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "create analyzer operation",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerCreate,
+					Options: map[string]any{
+						"name": "text_en",
+						"type": "text",
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func() driver.Database {
+					db := new(MockArangoDB)
+					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
+						Name: "text_en",
+						Type: "text",
+					}).Return(false, new(MockArangoSearchAnalyzer), nil)
+
+					return db
+				}(),
+			},
+		},
+		{
+			name: "create analyzer operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerCreate,
+					Options: map[string]any{
+						"name": "text_en",
+						"type": "text",
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func() driver.Database {
+					db := new(MockArangoDB)
+					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
+						Name: "text_en",
+						Type: "text",
+					}).Return(false, new(MockArangoSearchAnalyzer), fmt.Errorf("error"))
+					return db
+				}(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "try to recreate existing analyzer",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerCreate,
+					Options: map[string]any{
+						"name": "text_en",
+						"type": "text",
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func() driver.Database {
+					db := new(MockArangoDB)
+					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
+						Name: "text_en",
+						Type: "text",
+					}).Return(true, new(MockArangoSearchAnalyzer), nil)
+
+					return db
+				}(),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if err := CreateAnalyzerOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateAnalyzerOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDeleteAnalyzerOperation(t *testing.T) {
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  driver.Database
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "delete analyzer operation",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerDelete,
+					Options: map[string]any{
+						"name":  "text_en",
+						"force": true,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func() driver.Database {
+					analyzer := new(MockArangoSearchAnalyzer)
+					analyzer.On("Remove", context.Background(), true).Return(nil)
+
+					db := new(MockArangoDB)
+					db.On("Analyzer", context.Background(), "text_en").Return(analyzer, nil)
+
+					return db
+				}(),
+			},
+		},
+		{
+			name: "delete analyzer operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerDelete,
+					Options: map[string]any{
+						"name":  "text_en",
+						"force": true,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func() driver.Database {
+					analyzer := new(MockArangoSearchAnalyzer)
+					analyzer.On("Remove", context.Background(), true).Return(fmt.Errorf("error"))
+
+					db := new(MockArangoDB)
+					db.On("Analyzer", context.Background(), "text_en").Return(analyzer, nil)
+
+					return db
+				}(),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if err := DeleteAnalyzerOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+				t.Errorf("DeleteAnalyzerOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
