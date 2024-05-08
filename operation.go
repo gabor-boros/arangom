@@ -609,7 +609,8 @@ func DeleteAnalyzerOperation(o *Operation) OperationFn {
 	return func(ctx context.Context, db driver.Database) error {
 
 		type deleteAnalyzerOpts struct {
-			Name string `json:"name"`
+			Name  string `json:"name"`
+			Force bool   `json:"force"`
 		}
 
 		opts := deleteAnalyzerOpts{}
@@ -622,6 +623,6 @@ func DeleteAnalyzerOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		return analyzer.Remove(ctx, false)
+		return analyzer.Remove(ctx, opts.Force)
 	}
 }
