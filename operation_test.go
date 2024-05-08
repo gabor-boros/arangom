@@ -153,7 +153,7 @@ func TestOperationKind_UnmarshalYAML(t *testing.T) {
 }
 
 func TestOperation_GetOperationFn(t *testing.T) {
-	emptyFn := func(o *Operation) OperationFn {
+	emptyFn := func(_ *Operation) OperationFn {
 		return nil
 	}
 

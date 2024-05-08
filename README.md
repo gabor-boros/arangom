@@ -230,6 +230,8 @@ options, please refer to the [ArangoDB documentation].
 | `createTTLIndex`        | Creates a TTL index.                      | [createTTLIndex]        |
 | `createZKDIndex`        | Creates a ZKD index.                      | [createZKDIndex]        |
 | `deleteIndex`           | Deletes an index.                         | [deleteIndex]           |
+| `createAnalyzer`        | Creates an analyzer.                      | [createAnalyzer]        |
+| `deleteAnalyzer`        | Deletes an analyzer.                      | [deleteIndex]           |
 
 Database operations are intentionally not supported. To apply migrations on a
 database, create the database first. **Feature requests and/or pull requests
@@ -254,6 +256,8 @@ are welcomed for other missing operations.**
 [createTTLIndex]: #createttlindex-options
 [createZKDIndex]: #createzkdindex-options
 [deleteIndex]: #deleteindex-options
+[createAnalyzer]: #createanalyzer-options
+[deleteAnalyzer]: #deleteanalyzer-options
 
 ### Operation option caveats
 
@@ -394,6 +398,24 @@ The options of the operation is extended with the following options:
 | Option name | Description                      |
 |-------------|----------------------------------|
 | `name`      | The name of the index to delete. |
+
+#### `createAnalyzer` options
+
+In case analyzer with the same name already exists, the operation will fail.
+
+| Option name  | Description                                      |
+|--------------|--------------------------------------------------|
+| `name`       | The name of the analyzer to create.              |
+| `type`       | The type of the analyzer to create.              |
+| `properties` | The properties of the analyzer to create.        |
+| `features`   | The array of features of the analyzer to create. |
+
+#### `deleteAnalyzer` options
+
+| Option name  | Description                         |
+|--------------|-------------------------------------|
+| `name`       | The name of the analyzer to delete. |
+| `force`      | Delete even if in use.              |
 
 ## Compatibility
 
