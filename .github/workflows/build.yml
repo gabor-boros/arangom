@@ -14,12 +14,12 @@ jobs:
     env:
       GO111MODULE: on
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '^1.20'
+          go-version: '^1.22'
       - name: Go CI Lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --timeout 5m
@@ -27,17 +27,17 @@ jobs:
     strategy:
       matrix:
         go:
-          - '^1.19'
-          - '^1.20'
+          - '1.21'
+          - '1.22'
         os:
           - ubuntu-latest
           - macos-latest
           - windows-latest
     runs-on: '${{ matrix.os }}'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: '${{ matrix.go }}'
       - name: Test
@@ -47,7 +47,7 @@ jobs:
       - name: Stash test results
         uses: actions/upload-artifact@master
         with:
-          name: "Test results"
+          name: "${{ matrix.os }}-${{ matrix.go }}"
           path: .coverage.out
           retention-days: 7
   coverage:
@@ -56,13 +56,13 @@ jobs:
     needs:
       - test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Unstash test results
         uses: actions/download-artifact@master
         with:
-          name: "Test results"
+          name: ubuntu-latest-1.22
       - name: Upload test results
-        uses: paambaati/codeclimate-action@v3.2.0
+        uses: paambaati/codeclimate-action@v6
         env:
           CC_TEST_REPORTER_ID: c9d94a2c1e909f32ec045ed9653456f64c0666bfde95012e9b913dbe4b988020
         with:
