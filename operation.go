@@ -33,6 +33,8 @@ const (
 	OperationKindTTLIndexCreate                                 // operation to create a TTL index
 	OperationKindZKDIndexCreate                                 // operation to create a ZKD index
 	OperationKindIndexDelete                                    // operation to delete an index
+	OperationKindAnalyzerCreate                                 // operation to delete an index
+	OperationKindAnalyzerDelete                                 // operation to delete an index
 )
 
 var (
@@ -64,6 +66,8 @@ var (
 		"createTTLIndex":        OperationKindTTLIndexCreate,
 		"createZKDIndex":        OperationKindZKDIndexCreate,
 		"deleteIndex":           OperationKindIndexDelete,
+		"createAnalyzer":        OperationKindAnalyzerCreate,
+		"deleteAnalyzer":        OperationKindAnalyzerDelete,
 	}
 
 	// operationKindMap is a map of operation kinds to operations.
@@ -90,6 +94,8 @@ var (
 		OperationKindTTLIndexCreate:        CreateTTLIndexOperation,
 		OperationKindZKDIndexCreate:        CreateZKDIndexOperation,
 		OperationKindIndexDelete:           DeleteIndexOperation,
+		OperationKindAnalyzerCreate:        CreateAnalyzerOperation,
+		OperationKindAnalyzerDelete:        DeleteAnalyzerOperation,
 	}
 )
 
@@ -575,5 +581,48 @@ func DeleteIndexOperation(o *Operation) OperationFn {
 		}
 
 		return index.Remove(ctx)
+	}
+}
+
+func CreateAnalyzerOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db driver.Database) error {
+
+		opts := driver.ArangoSearchAnalyzerDefinition{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+
+		found, _, err := db.EnsureAnalyzer(ctx, opts)
+		if err != nil {
+			return err
+		}
+
+		if found {
+			return fmt.Errorf("analyzer '%s' already exists", opts.Name)
+		}
+
+		return nil
+	}
+}
+
+func DeleteAnalyzerOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db driver.Database) error {
+
+		type deleteAnalyzerOpts struct {
+			Name  string `json:"name"`
+			Force bool   `json:"force"`
+		}
+
+		opts := deleteAnalyzerOpts{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+
+		analyzer, err := db.Analyzer(ctx, opts.Name)
+		if err != nil {
+			return err
+		}
+
+		return analyzer.Remove(ctx, opts.Force)
 	}
 }

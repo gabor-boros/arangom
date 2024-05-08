@@ -673,3 +673,41 @@ func (m *MockArangoSearchView) SetProperties(ctx context.Context, options arango
 	args := m.Called(ctx, options)
 	return args.Error(0)
 }
+
+type MockArangoSearchAnalyzer struct {
+	mock.Mock
+}
+
+func (m *MockArangoSearchAnalyzer) Name() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockArangoSearchAnalyzer) Type() arangoDriver.ArangoSearchAnalyzerType {
+	args := m.Called()
+	return args.Get(0).(arangoDriver.ArangoSearchAnalyzerType)
+}
+
+func (m *MockArangoSearchAnalyzer) UniqueName() string {
+	args := m.Called()
+	return args.String(0)
+}
+func (m *MockArangoSearchAnalyzer) Definition() arangoDriver.ArangoSearchAnalyzerDefinition {
+	args := m.Called()
+	return args.Get(0).(arangoDriver.ArangoSearchAnalyzerDefinition)
+}
+
+func (m *MockArangoSearchAnalyzer) Properties() arangoDriver.ArangoSearchAnalyzerProperties {
+	args := m.Called()
+	return args.Get(0).(arangoDriver.ArangoSearchAnalyzerProperties)
+}
+
+func (m *MockArangoSearchAnalyzer) Database() arangoDriver.Database {
+	args := m.Called()
+	return args.Get(0).(arangoDriver.Database)
+}
+
+func (m *MockArangoSearchAnalyzer) Remove(ctx context.Context, force bool) error {
+	args := m.Called(ctx, force)
+	return args.Error(0)
+}
