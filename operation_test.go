@@ -128,6 +128,16 @@ func TestOperationKind_UnmarshalYAML(t *testing.T) {
 			want:  OperationKindIndexDelete,
 		},
 		{
+			name:  "unmarshal createAnalyzer",
+			value: []byte(`createAnalyzer`),
+			want:  OperationKindAnalyzerCreate,
+		},
+		{
+			name:  "unmarshal deleteAnalyzer",
+			value: []byte(`deleteAnalyzer`),
+			want:  OperationKindAnalyzerDelete,
+		},
+		{
 			name:    "unmarshal invalid operation kind",
 			value:   []byte(`invalid`),
 			wantErr: true,
@@ -316,6 +326,20 @@ func TestOperation_GetOperationFn(t *testing.T) {
 				Kind: OperationKindIndexDelete,
 			},
 			want: DeleteIndexOperation,
+		},
+		{
+			name: "get createAnalyzer operation",
+			operation: Operation{
+				Kind: OperationKindAnalyzerCreate,
+			},
+			want: CreateAnalyzerOperation,
+		},
+		{
+			name: "get deleteAnalyzer operation",
+			operation: Operation{
+				Kind: OperationKindAnalyzerDelete,
+			},
+			want: DeleteAnalyzerOperation,
 		},
 		{
 			name: "get unknown operation",
