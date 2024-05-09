@@ -24,12 +24,12 @@ dep-update: ## Update dependencies
 
 .PHONY: build
 build: dep ## Build binary
-	goreleaser build --rm-dist --snapshot --single-target
+	goreleaser build --clean --snapshot --single-target
 	@find bin -name "$(BIN_NAME)" -exec cp "{}" bin/ \;
 
 .PHONY: release
-release: build lint test ## Release a new version on GitHub
-	goreleaser release --rm-dist
+release: lint test ## Release a new version on GitHub
+	goreleaser release --clean
 
 .PHONY: bench
 bench: ## Run benchmarks
