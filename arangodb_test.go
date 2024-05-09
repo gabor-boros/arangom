@@ -44,6 +44,14 @@ func (m *MockArangoDB) EngineInfo(ctx context.Context) (arangoDriver.EngineInfo,
 	return args.Get(0).(arangoDriver.EngineInfo), args.Error(1)
 }
 
+func (m *MockArangoDB) ExplainQuery(ctx context.Context, query string, bindVars map[string]any, opts *arangoDriver.ExplainQueryOptions) (arangoDriver.ExplainQueryResult, error) {
+	args := m.Called(ctx, query, bindVars, opts)
+	if args.Get(0) == nil {
+		return arangoDriver.ExplainQueryResult{}, args.Error(1)
+	}
+	return args.Get(0).(arangoDriver.ExplainQueryResult), args.Error(1)
+}
+
 func (m *MockArangoDB) Remove(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
@@ -54,7 +62,6 @@ func (m *MockArangoDB) Collection(ctx context.Context, name string) (arangoDrive
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-
 	return args.Get(0).(arangoDriver.Collection), args.Error(1)
 }
 
@@ -183,7 +190,6 @@ func (m *MockArangoDB) Query(ctx context.Context, query string, bindVars map[str
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-
 	return args.Get(0).(arangoDriver.Cursor), args.Error(1)
 }
 
@@ -276,6 +282,11 @@ func (m *MockArangoCollection) Truncate(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockArangoCollection) Rename(ctx context.Context, newName string) error {
+	args := m.Called(ctx, newName)
+	return args.Error(0)
+}
+
 func (m *MockArangoCollection) Index(ctx context.Context, name string) (arangoDriver.Index, error) {
 	args := m.Called(ctx, name)
 	return args.Get(0).(arangoDriver.Index), args.Error(1)
@@ -322,6 +333,16 @@ func (m *MockArangoCollection) EnsureTTLIndex(ctx context.Context, field string,
 }
 
 func (m *MockArangoCollection) EnsureZKDIndex(ctx context.Context, fields []string, options *arangoDriver.EnsureZKDIndexOptions) (arangoDriver.Index, bool, error) {
+	args := m.Called(ctx, fields, options)
+	return args.Get(0).(arangoDriver.Index), args.Bool(1), args.Error(2)
+}
+
+func (m *MockArangoCollection) EnsureMDIIndex(ctx context.Context, fields []string, options *arangoDriver.EnsureMDIIndexOptions) (arangoDriver.Index, bool, error) {
+	args := m.Called(ctx, fields, options)
+	return args.Get(0).(arangoDriver.Index), args.Bool(1), args.Error(2)
+}
+
+func (m *MockArangoCollection) EnsureMDIPrefixedIndex(ctx context.Context, fields []string, options *arangoDriver.EnsureMDIPrefixedIndexOptions) (arangoDriver.Index, bool, error) {
 	args := m.Called(ctx, fields, options)
 	return args.Get(0).(arangoDriver.Index), args.Bool(1), args.Error(2)
 }
@@ -404,6 +425,11 @@ func (m *MockArangoGraph) Name() string {
 
 func (m *MockArangoGraph) Remove(ctx context.Context) error {
 	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockArangoGraph) RemoveWithOpts(ctx context.Context, opts *arangoDriver.RemoveGraphOptions) error {
+	args := m.Called(ctx, opts)
 	return args.Error(0)
 }
 
