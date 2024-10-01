@@ -3,7 +3,7 @@ module github.com/gabor-boros/arangom
 go 1.21
 
 require (
-	github.com/arangodb/go-driver v1.6.2
+	github.com/arangodb/go-driver v1.6.4
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v3 v3.0.1
