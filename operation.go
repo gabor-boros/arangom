@@ -586,19 +586,40 @@ func DeleteIndexOperation(o *Operation) OperationFn {
 
 func CreateAnalyzerOperation(o *Operation) OperationFn {
 	return func(ctx context.Context, db driver.Database) error {
-
-		opts := driver.ArangoSearchAnalyzerDefinition{}
-		if err := convertToOperationOptions(o.Options, &opts); err != nil {
-			return err
+		conn := ConnectionFromContext(ctx)
+		if conn == nil {
+			return fmt.Errorf("connection is required for createAnalyzer operation; use WithConnection option")
 		}
 
-		found, _, err := db.EnsureAnalyzer(ctx, opts)
+		body := map[string]any{
+			"name": o.Options["name"],
+			"type": o.Options["type"],
+		}
+		if p, ok := o.Options["properties"]; ok {
+			body["properties"] = p
+		}
+		if f, ok := o.Options["features"]; ok {
+			body["features"] = f
+		}
+
+		reqPath := fmt.Sprintf("/_db/%s/_api/analyzer", db.Name())
+		req, err := conn.NewRequest("POST", reqPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create analyzer request: %w", err)
 		}
 
-		if found {
-			return fmt.Errorf("analyzer '%s' already exists", opts.Name)
+		req, err = req.SetBody(body)
+		if err != nil {
+			return fmt.Errorf("failed to set analyzer request body: %w", err)
+		}
+
+		resp, err := conn.Do(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to create analyzer: %w", err)
+		}
+
+		if err := resp.CheckStatus(200, 201); err != nil {
+			return err
 		}
 
 		return nil

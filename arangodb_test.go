@@ -737,3 +737,129 @@ func (m *MockArangoSearchAnalyzer) Remove(ctx context.Context, force bool) error
 	args := m.Called(ctx, force)
 	return args.Error(0)
 }
+
+type MockConnection struct {
+	mock.Mock
+}
+
+func (m *MockConnection) NewRequest(method, path string) (arangoDriver.Request, error) {
+	args := m.Called(method, path)
+	return args.Get(0).(arangoDriver.Request), args.Error(1)
+}
+
+func (m *MockConnection) Do(ctx context.Context, req arangoDriver.Request) (arangoDriver.Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(arangoDriver.Response), args.Error(1)
+}
+
+func (m *MockConnection) Unmarshal(data arangoDriver.RawObject, result any) error {
+	args := m.Called(data, result)
+	return args.Error(0)
+}
+
+func (m *MockConnection) Endpoints() []string {
+	args := m.Called()
+	return args.Get(0).([]string)
+}
+
+func (m *MockConnection) UpdateEndpoints(endpoints []string) error {
+	args := m.Called(endpoints)
+	return args.Error(0)
+}
+
+func (m *MockConnection) SetAuthentication(auth arangoDriver.Authentication) (arangoDriver.Connection, error) {
+	args := m.Called(auth)
+	return args.Get(0).(arangoDriver.Connection), args.Error(1)
+}
+
+func (m *MockConnection) Protocols() arangoDriver.ProtocolSet {
+	args := m.Called()
+	return args.Get(0).(arangoDriver.ProtocolSet)
+}
+
+type MockRequest struct {
+	mock.Mock
+}
+
+func (m *MockRequest) SetQuery(key, value string) arangoDriver.Request {
+	m.Called(key, value)
+	return m
+}
+
+func (m *MockRequest) SetBody(body ...interface{}) (arangoDriver.Request, error) {
+	args := m.Called(body)
+	return m, args.Error(0)
+}
+
+func (m *MockRequest) SetBodyArray(bodyArray interface{}, mergeArray []map[string]interface{}) (arangoDriver.Request, error) {
+	args := m.Called(bodyArray, mergeArray)
+	return m, args.Error(0)
+}
+
+func (m *MockRequest) SetBodyImportArray(bodyArray interface{}) (arangoDriver.Request, error) {
+	args := m.Called(bodyArray)
+	return m, args.Error(0)
+}
+
+func (m *MockRequest) SetHeader(key, value string) arangoDriver.Request {
+	m.Called(key, value)
+	return m
+}
+
+func (m *MockRequest) Written() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockRequest) Clone() arangoDriver.Request {
+	m.Called()
+	return m
+}
+
+func (m *MockRequest) Path() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockRequest) Method() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+type MockResponse struct {
+	mock.Mock
+}
+
+func (m *MockResponse) StatusCode() int {
+	args := m.Called()
+	return args.Int(0)
+}
+
+func (m *MockResponse) Endpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockResponse) Header(name string) string {
+	args := m.Called(name)
+	return args.String(0)
+}
+
+func (m *MockResponse) CheckStatus(validStatusCodes ...int) error {
+	callArgs := make([]interface{}, len(validStatusCodes))
+	for i, code := range validStatusCodes {
+		callArgs[i] = code
+	}
+	args := m.Called(callArgs...)
+	return args.Error(0)
+}
+
+func (m *MockResponse) ParseBody(field string, result interface{}) error {
+	args := m.Called(field, result)
+	return args.Error(0)
+}
+
+func (m *MockResponse) ParseArrayBody() ([]arangoDriver.Response, error) {
+	args := m.Called()
+	return args.Get(0).([]arangoDriver.Response), args.Error(1)
+}
