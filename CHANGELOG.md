@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 
 **Refactor**
 
-- Update to latest tooling versions ([aa363e9](https://github.com/gabor-boros/arangom/commit/aa363e98794c16892bf428254b8647949c4e4a9d))
+- Update to latest tooling versions ([0ee1a6f](https://github.com/gabor-boros/arangom/commit/0ee1a6f1bd21953b9030cc250f95516c2a9d7deb))
 
 ## [0.3.0] - 2024-05-09
 
