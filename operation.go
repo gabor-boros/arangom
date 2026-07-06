@@ -592,8 +592,8 @@ func CreateAnalyzerOperation(o *Operation) OperationFn {
 		}
 
 		body := map[string]any{
-			"name": o.Options["name"],
-			"type": o.Options["type"],
+			"name": o.Options["name"], //nolint:goconst // analyzer API field name
+			"type": o.Options["type"], //nolint:goconst // analyzer API field name
 		}
 		if p, ok := o.Options["properties"]; ok {
 			body["properties"] = p

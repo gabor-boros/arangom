@@ -42,7 +42,7 @@ format: dep ## Format source code
 
 .PHONY: lint
 lint: ## Run linters
-	golangci-lint run --timeout 5m
+	golangci-lint run
 
 .PHONY: test
 test: ## Run unit tests
