@@ -2,8 +2,6 @@
 
 [![GoDoc](https://godoc.org/github.com/gabor-boros/arangom?status.svg)](https://godoc.org/github.com/gabor-boros/arangom)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gabor-boros/arangom)](https://goreportcard.com/report/github.com/gabor-boros/arangom)
-[![Maintainability](https://api.codeclimate.com/v1/badges/322e5839b4b4d1710351/maintainability)](https://codeclimate.com/github/gabor-boros/arangom/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/322e5839b4b4d1710351/test_coverage)](https://codeclimate.com/github/gabor-boros/arangom/test_coverage)
 
 arangom is an [ArangoDB] migration tool written in Go. It is heavily inspired
 by [ArangoMiGo] which is already a great tool.
