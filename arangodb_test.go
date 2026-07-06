@@ -175,6 +175,14 @@ func (m *MockArangoDB) EnsureAnalyzer(ctx context.Context, analyzer arangoDriver
 	return args.Bool(0), args.Get(1).(arangoDriver.ArangoSearchAnalyzer), args.Error(2)
 }
 
+func (m *MockArangoDB) EnsureCreatedAnalyzer(ctx context.Context, analyzer *arangoDriver.ArangoSearchAnalyzerDefinition) (arangoDriver.ArangoSearchAnalyzer, bool, error) {
+	args := m.Called(ctx, analyzer)
+	if args.Get(0) == nil {
+		return nil, args.Bool(1), args.Error(2)
+	}
+	return args.Get(0).(arangoDriver.ArangoSearchAnalyzer), args.Bool(1), args.Error(2)
+}
+
 func (m *MockArangoDB) Analyzer(ctx context.Context, name string) (arangoDriver.ArangoSearchAnalyzer, error) {
 	args := m.Called(ctx, name)
 	return args.Get(0).(arangoDriver.ArangoSearchAnalyzer), args.Error(1)

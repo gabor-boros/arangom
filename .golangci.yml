@@ -1,31 +1,51 @@
+version: "2"
+run:
+  timeout: 5m
 linters:
-  disable-all: true
+  default: none
   enable:
-    # default
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
-    # custom enabled
     - contextcheck
+    - copyloopvar
+    - errcheck
     - errname
     - errorlint
-    - copyloopvar
     - goconst
     - gocritic
-    - gofmt
     - gosec
+    - govet
     - importas
+    - ineffassign
     - makezero
     - nlreturn
     - noctx
     - prealloc
     - revive
-linters-settings:
-  goconst:
-    ignore-tests: true
-  nlreturn:
-    block-size: 7
+    - staticcheck
+    - unused
+  settings:
+    nlreturn:
+      block-size: 7
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - goconst
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -1,3 +1,4 @@
+version: 2
 before:
   hooks:
     - make dep
@@ -23,27 +24,30 @@ checksum:
 signs:
   - artifacts: all
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 milestones:
   - close: true
     fail_on_error: true
 changelog:
   disable: true
-brews:
-  -
-    repository:
+homebrew_casks:
+  - repository:
       owner: gabor-boros
       name: homebrew-brew
     commit_author:
       name: "Gabor Boros"
       email: gabor.brs@gmail.com
-    directory: Formula
     homepage: "https://github.com/gabor-boros/arangom"
     description: "Run ArangoDB migrations with ease."
     license: "MIT"
-    dependencies:
-      - name: go
-        type: build
+    url:
+      verified: "github.com/gabor-boros/arangom/"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/arangom"]
+          end
     custom_block: |
       head "https://github.com/gabor-boros/arangom", branch: "main"
 
