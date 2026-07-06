@@ -2,11 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [0.4.0]
 
 **Bug Fixes**
 
 - Bypass go-driver struct serialization for CreateAnalyzer (#6) ([ef696ba](https://github.com/gabor-boros/arangom/commit/ef696ba72b23dce0e30bba7984bf533fbcae0af5))
+
+**Documentation**
+
+- Remove dead link from README ([d6afb6f](https://github.com/gabor-boros/arangom/commit/d6afb6f4281c951be4e52c59203076c7ec21452a))
 
 **Miscellaneous Tasks**
 
@@ -16,11 +20,7 @@ All notable changes to this project will be documented in this file.
 
 **Refactor**
 
-- Update to latest tooling versions ([0ee1a6f](https://github.com/gabor-boros/arangom/commit/0ee1a6f1bd21953b9030cc250f95516c2a9d7deb))
-
-**Ci**
-
-- Replace codeclimate with codecov ([faf62d3](https://github.com/gabor-boros/arangom/commit/faf62d3aa803284e339b74093da77d91bdc6c9d5))
+- Update to latest tooling versions (#8) ([43c1946](https://github.com/gabor-boros/arangom/commit/43c1946da4db3e9ba5f2535f3c1490a08e989680))
 
 ## [0.3.0] - 2024-05-09
 
