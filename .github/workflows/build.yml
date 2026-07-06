@@ -65,10 +65,11 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: ubuntu-latest-1.26
-      - name: Upload test results
-        uses: paambaati/codeclimate-action@v9
-        env:
-          CC_TEST_REPORTER_ID: c9d94a2c1e909f32ec045ed9653456f64c0666bfde95012e9b913dbe4b988020
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
         with:
-          prefix: github.com/${{ github.repository }}
-          coverageLocations: ${{ github.workspace }}/.coverage.out:gocov
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./.coverage.out
+          flags: unittests
+          name: ubuntu-latest-1.26
+          fail_ci_if_error: true
