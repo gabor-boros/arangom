@@ -89,12 +89,12 @@ func validateFlags() error {
 	return nil
 }
 
-func initDatabase() (arangoDriver.Database, error) {
+func initDatabase() (arangoDriver.Database, arangoDriver.Connection, error) {
 	conn, err := arangoHTTP.NewConnection(arangoHTTP.ConnectionConfig{
 		Endpoints: strings.Split(dbEndpoints, ","),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	client, err := arangoDriver.NewClient(arangoDriver.ClientConfig{
@@ -102,26 +102,26 @@ func initDatabase() (arangoDriver.Database, error) {
 		Authentication: arangoDriver.BasicAuthentication(dbUsername, dbPassword),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	db, err := client.Database(context.Background(), dbName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	collExists, err := db.CollectionExists(context.Background(), collection)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !collExists && createCollection {
 		if _, err := db.CreateCollection(context.Background(), collection, nil); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return db, nil
+	return db, client.Connection(), nil
 }
 
 // loadMigration loads a single migration file.
@@ -165,7 +165,7 @@ func loadMigrations(path string) ([]*arangom.Migration, error) {
 }
 
 func main() {
-	db, err := initDatabase()
+	db, conn, err := initDatabase()
 	if err != nil {
 		panic(err)
 	}
@@ -177,6 +177,7 @@ func main() {
 
 	executor, err := arangom.NewExecutor(
 		arangom.WithDatabase(db),
+		arangom.WithConnection(conn),
 		arangom.WithCollection(collection),
 		arangom.WithMigrations(migrations),
 	)

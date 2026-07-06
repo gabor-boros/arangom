@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/arangodb/go-driver"
+	"github.com/stretchr/testify/mock"
 	"gopkg.in/yaml.v3"
 )
 
@@ -2771,21 +2772,65 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 					},
 				},
 			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
-						Name: "text_en",
-						Type: "text",
-					}).Return(false, new(MockArangoSearchAnalyzer), nil)
+			args: func() args {
+				mockReq := new(MockRequest)
+				mockReq.On("SetBody", mock.Anything).Return(nil)
 
-					return db
-				}(),
-			},
+				mockResp := new(MockResponse)
+				mockResp.On("CheckStatus", 200, 201).Return(nil)
+
+				mockConn := new(MockConnection)
+				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
+				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
+
+				db := new(MockArangoDB)
+				db.On("Name").Return("testdb")
+
+				return args{
+					ctx: WithConnectionContext(context.Background(), mockConn),
+					db:  db,
+				}
+			}(),
 		},
 		{
-			name: "create analyzer operation with error",
+			name: "create analyzer operation with properties and features",
+			fields: fields{
+				operation: &Operation{
+					Kind: OperationKindAnalyzerCreate,
+					Options: map[string]any{
+						"name": "ngram_lower",
+						"type": "pipeline",
+						"properties": map[string]any{
+							"pipeline": []any{
+								map[string]any{"type": "norm", "properties": map[string]any{"locale": "en"}},
+							},
+						},
+						"features": []any{"frequency", "norm", "position"},
+					},
+				},
+			},
+			args: func() args {
+				mockReq := new(MockRequest)
+				mockReq.On("SetBody", mock.Anything).Return(nil)
+
+				mockResp := new(MockResponse)
+				mockResp.On("CheckStatus", 200, 201).Return(nil)
+
+				mockConn := new(MockConnection)
+				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
+				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
+
+				db := new(MockArangoDB)
+				db.On("Name").Return("testdb")
+
+				return args{
+					ctx: WithConnectionContext(context.Background(), mockConn),
+					db:  db,
+				}
+			}(),
+		},
+		{
+			name: "create analyzer operation with HTTP error",
 			fields: fields{
 				operation: &Operation{
 					Kind: OperationKindAnalyzerCreate,
@@ -2795,21 +2840,29 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 					},
 				},
 			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
-						Name: "text_en",
-						Type: "text",
-					}).Return(false, new(MockArangoSearchAnalyzer), fmt.Errorf("error"))
-					return db
-				}(),
-			},
+			args: func() args {
+				mockReq := new(MockRequest)
+				mockReq.On("SetBody", mock.Anything).Return(nil)
+
+				mockResp := new(MockResponse)
+				mockResp.On("CheckStatus", 200, 201).Return(fmt.Errorf("bad request"))
+
+				mockConn := new(MockConnection)
+				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
+				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
+
+				db := new(MockArangoDB)
+				db.On("Name").Return("testdb")
+
+				return args{
+					ctx: WithConnectionContext(context.Background(), mockConn),
+					db:  db,
+				}
+			}(),
 			wantErr: true,
 		},
 		{
-			name: "try to recreate existing analyzer",
+			name: "create analyzer operation without connection",
 			fields: fields{
 				operation: &Operation{
 					Kind: OperationKindAnalyzerCreate,
@@ -2822,13 +2875,7 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 			args: args{
 				ctx: context.Background(),
 				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("EnsureAnalyzer", context.Background(), driver.ArangoSearchAnalyzerDefinition{
-						Name: "text_en",
-						Type: "text",
-					}).Return(true, new(MockArangoSearchAnalyzer), nil)
-
-					return db
+					return new(MockArangoDB)
 				}(),
 			},
 			wantErr: true,

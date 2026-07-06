@@ -7,6 +7,19 @@ import (
 	"github.com/pkg/errors"
 )
 
+type connCtxKey struct{}
+
+// WithConnectionContext returns a context with the given connection stored in it.
+func WithConnectionContext(ctx context.Context, conn driver.Connection) context.Context {
+	return context.WithValue(ctx, connCtxKey{}, conn)
+}
+
+// ConnectionFromContext retrieves the connection from the context, or nil if not set.
+func ConnectionFromContext(ctx context.Context) driver.Connection {
+	conn, _ := ctx.Value(connCtxKey{}).(driver.Connection)
+	return conn
+}
+
 // ExecutorOption is a function that sets configuration options on Executor.
 type ExecutorOption func(*Executor) error
 
@@ -46,6 +59,15 @@ func WithMigrations(migrations []*Migration) ExecutorOption {
 	}
 }
 
+// WithConnection sets the connection of the executor. This is required for
+// operations that need raw HTTP access (e.g. createAnalyzer).
+func WithConnection(conn driver.Connection) ExecutorOption {
+	return func(e *Executor) error {
+		e.conn = conn
+		return nil
+	}
+}
+
 // WithLogger sets the logger of the executor.
 func WithLogger(logger Logger) ExecutorOption {
 	return func(e *Executor) error {
@@ -61,6 +83,7 @@ func WithLogger(logger Logger) ExecutorOption {
 // Executor executes migrations on a database in order.
 type Executor struct {
 	db         driver.Database
+	conn       driver.Connection
 	collection string
 	migrations []*Migration
 	logger     Logger
@@ -93,7 +116,12 @@ func (e *Executor) Execute(ctx context.Context) error {
 		migration.Status = MigrationStatusRunning
 		saveMigration(ctx, coll, migration)
 
-		if err := migration.Migrate(ctx, e.db); err != nil {
+		migrateCtx := ctx
+		if e.conn != nil {
+			migrateCtx = WithConnectionContext(ctx, e.conn)
+		}
+
+		if err := migration.Migrate(migrateCtx, e.db); err != nil {
 			migration.Status = MigrationStatusFailed
 			saveMigration(ctx, coll, migration)
 

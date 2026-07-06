@@ -13,7 +13,7 @@ linters:
     - contextcheck
     - errname
     - errorlint
-    - exportloopref
+    - copyloopvar
     - goconst
     - gocritic
     - gofmt
