@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file.
 
 - Update to latest tooling versions ([0ee1a6f](https://github.com/gabor-boros/arangom/commit/0ee1a6f1bd21953b9030cc250f95516c2a9d7deb))
 
+**Ci**
+
+- Replace codeclimate with codecov ([faf62d3](https://github.com/gabor-boros/arangom/commit/faf62d3aa803284e339b74093da77d91bdc6c9d5))
+
 ## [0.3.0] - 2024-05-09
 
 **Features**
