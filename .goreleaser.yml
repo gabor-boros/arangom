@@ -49,8 +49,6 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/arangom"]
           end
     custom_block: |
-      head "https://github.com/gabor-boros/arangom", branch: "main"
-
       livecheck do
         url "https://github.com/gabor-boros/arangom/releases"
         regex(/^v(\d+(?:\.\d+)+)$/i)
