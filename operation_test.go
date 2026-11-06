@@ -522,92 +522,86 @@ func TestCreateCollectionOperation(t *testing.T) {
 }
 
 func TestUpdateCollectionOperation(t *testing.T) {
-	type fields struct {
-		operation *Operation
-	}
 	type args struct {
 		ctx context.Context
 		db  driver.Database
 	}
+	// The request must carry exactly wantBody: the options are sent as they are.
+	withConnection := func(wantBody map[string]any, doErr, statusErr error) (args, *MockRequest) {
+		mockReq := new(MockRequest)
+		mockReq.On("SetBody", []any{wantBody}).Return(nil)
+
+		mockResp := new(MockResponse)
+		mockResp.On("CheckStatus", 200).Return(statusErr)
+
+		mockConn := new(MockConnection)
+		mockConn.On("NewRequest", "PUT", "/_db/testdb/_api/collection/test/properties").Return(mockReq, nil)
+		mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, doErr)
+
+		db := new(MockArangoDB)
+		db.On("Name").Return("testdb")
+
+		return args{ctx: WithConnectionContext(context.Background(), mockConn), db: db}, mockReq
+	}
+
+	computedValues := map[string]any{
+		"computedValues": []any{
+			map[string]any{
+				"name":       "svid_pending",
+				"expression": "RETURN @doc.matched_at == null ? true : null",
+				"computeOn":  []any{"insert", "update", "replace"},
+				"overwrite":  true,
+				"keepNull":   false,
+			},
+		},
+	}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name     string
+		options  map[string]any
+		wantBody map[string]any
+		doErr    error
+		status   error
+		noConn   bool
+		wantErr  bool
 	}{
 		{
-			name: "update collection operation",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindCollectionUpdate,
-					Collection: "test",
-					Options: map[string]any{
-						"waitForSync": true,
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					wfs := true
-
-					coll := new(MockArangoCollection)
-					coll.On("SetProperties", context.Background(), driver.SetCollectionPropertiesOptions{
-						WaitForSync: &wfs,
-					}).Return(nil)
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "test").Return(coll, nil)
-
-					return db
-				}(),
-			},
+			name:     "update collection operation",
+			options:  map[string]any{"waitForSync": true},
+			wantBody: map[string]any{"waitForSync": true},
 		},
 		{
-			name: "update collection operation with error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindCollectionUpdate,
-					Collection: "test",
-					Options: map[string]any{
-						"waitForSync": true,
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					wfs := true
-
-					coll := new(MockArangoCollection)
-					coll.On("SetProperties", context.Background(), driver.SetCollectionPropertiesOptions{
-						WaitForSync: &wfs,
-					}).Return(fmt.Errorf("error"))
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "test").Return(coll, nil)
-
-					return db
-				}(),
-			},
-			wantErr: true,
+			name:     "update collection operation sends computed values",
+			options:  computedValues,
+			wantBody: computedValues,
 		},
 		{
-			name: "update collection operation with collection open error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindCollectionUpdate,
-					Collection: "test",
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "test").Return(nil, fmt.Errorf("error"))
-					return db
-				}(),
-			},
+			name:     "update collection operation sends an empty computed values list",
+			options:  map[string]any{"computedValues": []any{}},
+			wantBody: map[string]any{"computedValues": []any{}},
+		},
+		{
+			name:     "update collection operation without options",
+			wantBody: map[string]any{},
+		},
+		{
+			name:     "update collection operation with request error",
+			options:  map[string]any{"waitForSync": true},
+			wantBody: map[string]any{"waitForSync": true},
+			doErr:    fmt.Errorf("connection refused"),
+			wantErr:  true,
+		},
+		{
+			name:     "update collection operation with HTTP error",
+			options:  map[string]any{"waitForSync": true},
+			wantBody: map[string]any{"waitForSync": true},
+			status:   fmt.Errorf("collection not found"),
+			wantErr:  true,
+		},
+		{
+			name:    "update collection operation without connection",
+			options: map[string]any{"waitForSync": true},
+			noConn:  true,
 			wantErr: true,
 		},
 	}
@@ -616,12 +610,20 @@ func TestUpdateCollectionOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := UpdateCollectionOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			operation := &Operation{Kind: OperationKindCollectionUpdate, Collection: "test", Options: tt.options}
+			a, mockReq := withConnection(tt.wantBody, tt.doErr, tt.status)
+			if tt.noConn {
+				a = args{ctx: context.Background(), db: new(MockArangoDB)}
+			}
+
+			if err := UpdateCollectionOperation(operation)(a.ctx, a.db); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateCollectionOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.noConn {
+				mockReq.AssertExpectations(t)
 			}
 		})
 	}
-
 }
 
 func TestDeleteCollectionOperation(t *testing.T) {
