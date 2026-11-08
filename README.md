@@ -16,7 +16,7 @@ by [ArangoMiGo] which is already a great tool.
 **Using `brew`**
 
 ``` shell
-$ brew install --cask gabor-boros/brew/klue
+$ brew install --cask gabor-boros/brew/arangom
 ```
 
 **Manual install**
