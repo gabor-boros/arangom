@@ -27,6 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         go:
+          - '1.25'
           - '1.26'
           - '1.27'
         os:
@@ -52,6 +53,19 @@ jobs:
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: error
+
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27'
+          cache: true
+      - name: Integration tests
+        run: make test-integration
 
   coverage:
     name: coverage

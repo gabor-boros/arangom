@@ -1,0 +1,76 @@
+name: create indexes and delete one by name
+migrations:
+  - id: 1
+    path: 0001_indexes.yaml
+    operations:
+      - kind: createCollection
+        collection: records
+      - kind: createPersistentIndex
+        collection: records
+        options:
+          name: idx_name
+          fields: [name]
+          unique: true
+      - kind: createGeoSpatialIndex
+        collection: records
+        options:
+          name: idx_geo
+          fields: [latitude, longitude]
+      - kind: createTTLIndex
+        collection: records
+        options:
+          name: idx_ttl
+          field: expireAt
+          expireAfter: 3600
+      - kind: createInvertedIndex
+        collection: records
+        options:
+          name: idx_inverted
+          fields:
+            - name: name
+      - kind: createMDIIndex
+        collection: records
+        options:
+          name: idx_mdi
+          fields: [x, y]
+      - kind: createMDIPrefixedIndex
+        collection: records
+        options:
+          name: idx_mdi_prefix
+          fields: [x, y]
+          prefixFields: [kind]
+      - kind: deleteIndex
+        collection: records
+        options:
+          name: idx_ttl
+expect:
+  collections:
+    - name: records
+      exists: true
+  indexes:
+    - collection: records
+      name: idx_name
+      exists: true
+      type: persistent
+    - collection: records
+      name: idx_geo
+      exists: true
+      type: geo
+    - collection: records
+      name: idx_ttl
+      exists: false
+    - collection: records
+      name: idx_inverted
+      exists: true
+      type: inverted
+    - collection: records
+      name: idx_mdi
+      exists: true
+      type: mdi
+    - collection: records
+      name: idx_mdi_prefix
+      exists: true
+      type: mdi-prefixed
+  migration_records:
+    - name: 0001_indexes
+      status: done

@@ -1,0 +1,25 @@
+name: update one collection and delete another
+migrations:
+  - id: 1
+    path: 0001_update_users.yaml
+    operations:
+      - kind: createCollection
+        collection: users
+      - kind: createCollection
+        collection: obsolete
+      - kind: updateCollection
+        collection: users
+        options:
+          waitForSync: true
+          cacheEnabled: true
+      - kind: deleteCollection
+        collection: obsolete
+expect:
+  collections:
+    - name: users
+      exists: true
+    - name: obsolete
+      exists: false
+  migration_records:
+    - name: 0001_update_users
+      status: done

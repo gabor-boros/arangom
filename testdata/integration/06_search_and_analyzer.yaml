@@ -1,0 +1,75 @@
+name: create search views and an analyzer then remove them
+migrations:
+  - id: 1
+    path: 0001_search.yaml
+    operations:
+      - kind: createAnalyzer
+        options:
+          name: plain_identity
+          type: identity
+      - kind: createCollection
+        collection: docs
+      - kind: createInvertedIndex
+        collection: docs
+        options:
+          name: idx_title
+          fields:
+            - name: title
+      - kind: createInvertedIndex
+        collection: docs
+        options:
+          name: idx_body
+          fields:
+            - name: body
+      - kind: createView
+        collection: docs_search
+        options:
+          cleanupIntervalStep: 2
+      - kind: updateView
+        collection: docs_search
+        options:
+          cleanupIntervalStep: 5
+      - kind: createSearchAliasView
+        collection: docs_alias
+        options:
+          indexes:
+            - collection: docs
+              index: idx_title
+      - kind: updateSearchAliasView
+        collection: docs_alias
+        options:
+          indexes:
+            - collection: docs
+              index: idx_body
+      - kind: deleteView
+        collection: docs_search
+      - kind: deleteView
+        collection: docs_alias
+      - kind: deleteAnalyzer
+        options:
+          name: plain_identity
+          force: true
+expect:
+  collections:
+    - name: docs
+      exists: true
+  views:
+    - name: docs_search
+      exists: false
+    - name: docs_alias
+      exists: false
+  analyzers:
+    - name: plain_identity
+      exists: false
+  indexes:
+    - collection: docs
+      name: idx_title
+      exists: true
+      type: inverted
+    - collection: docs
+      name: idx_body
+      exists: true
+      type: inverted
+  migration_records:
+    - name: 0001_search
+      status: done

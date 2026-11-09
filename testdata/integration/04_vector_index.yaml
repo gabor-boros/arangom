@@ -1,0 +1,40 @@
+name: insert embeddings and create a vector index
+migrations:
+  - id: 1
+    path: 0001_vector_index.yaml
+    operations:
+      - kind: createCollection
+        collection: embeddings
+      - kind: executeAQL
+        options:
+          query: "FOR row IN @rows INSERT { embedding: row } INTO embeddings"
+          bindVars:
+            rows:
+              - [0.1, 0.2]
+              - [0.2, 0.1]
+              - [0.3, 0.4]
+              - [0.4, 0.3]
+      - kind: createVectorIndex
+        collection: embeddings
+        options:
+          name: idx_embedding
+          fields: [embedding]
+          params:
+            dimension: 2
+            metric: cosine
+            nLists: 1
+expect:
+  collections:
+    - name: embeddings
+      exists: true
+  documents:
+    - collection: embeddings
+      count: 4
+  indexes:
+    - collection: embeddings
+      name: idx_embedding
+      exists: true
+      type: vector
+  migration_records:
+    - name: 0001_vector_index
+      status: done

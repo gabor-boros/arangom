@@ -444,6 +444,18 @@ project instead.
 
 The naming is indeed confusing, and I am open to suggestions.
 
+## Integration tests
+
+Integration tests apply the YAML scenarios in `testdata/integration` to
+ArangoDB. Docker is required. Each scenario runs in a new database, and that
+database is removed when the scenario finishes.
+
+```bash
+make test-integration
+```
+
+`make test` does not start ArangoDB and does not run this suite.
+
 ## Contributing
 
 Contributions are welcomed! Please open an issue or a pull request.

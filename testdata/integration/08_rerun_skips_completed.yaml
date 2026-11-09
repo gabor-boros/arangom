@@ -1,0 +1,15 @@
+name: second execution skips a completed migration
+execute_count: 2
+migrations:
+  - id: 1
+    path: 0001_create_users.yaml
+    operations:
+      - kind: createCollection
+        collection: users
+expect:
+  collections:
+    - name: users
+      exists: true
+  migration_records:
+    - name: 0001_create_users
+      status: done

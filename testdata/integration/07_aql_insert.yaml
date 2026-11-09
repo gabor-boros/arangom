@@ -1,0 +1,31 @@
+name: insert documents with bound AQL variables
+migrations:
+  - id: 1
+    path: 0001_insert_users.yaml
+    operations:
+      - kind: createCollection
+        collection: users
+      - kind: executeAQL
+        options:
+          query: "FOR person IN @people INSERT person INTO users"
+          bindVars:
+            people:
+              - email: ada@example.com
+                name: Ada
+              - email: grace@example.com
+                name: Grace
+expect:
+  collections:
+    - name: users
+      exists: true
+  documents:
+    - collection: users
+      count: 2
+      contains:
+        - email: ada@example.com
+          name: Ada
+        - email: grace@example.com
+          name: Grace
+  migration_records:
+    - name: 0001_insert_users
+      status: done
