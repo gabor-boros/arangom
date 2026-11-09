@@ -26,6 +26,8 @@ installed, you can build from source as well.
 
 ### As a package
 
+arangom requires Go 1.25 or newer.
+
 ```bash
 go get github.com/gabor-boros/arangom
 ```
@@ -114,32 +116,34 @@ import (
 	"context"
 	"os"
 
-	arangoDriver "github.com/arangodb/go-driver"
-	arangoHTTP "github.com/arangodb/go-driver/http"
+	"github.com/arangodb/go-driver/v2/arangodb"
+	"github.com/arangodb/go-driver/v2/connection"
 
-	arangoMigrate "github.com/gabor-boros/arangom"
+	"github.com/gabor-boros/arangom"
 )
 
 func main() {
-	conn, _ := arangoHTTP.NewConnection(arangoHTTP.ConnectionConfig{
-		Endpoints: []string{os.Getenv("ARANGO_URL")},
+	endpoint := connection.NewRoundRobinEndpoints([]string{os.Getenv("ARANGO_URL")})
+	conn := connection.NewHttpConnection(connection.HttpConfiguration{
+		Endpoint:       endpoint,
+		Authentication: connection.NewBasicAuth(os.Getenv("ARANGO_USER"), os.Getenv("ARANGO_PASSWORD")),
 	})
 
-	client, _ := arangoDriver.NewClient(arangoDriver.ClientConfig{
-		Connection:     conn,
-		Authentication: arangoDriver.BasicAuthentication(os.Getenv("ARANGO_USER"), os.Getenv("ARANGO_PASSWORD")),
-	})
+	client := arangodb.NewClient(conn)
 
-	db, _ := client.Database(context.Background(), os.Getenv("ARANGO_DB"))
+	db, err := client.GetDatabase(context.Background(), os.Getenv("ARANGO_DB"), nil)
+	if err != nil {
+		panic(err)
+	}
 
 	migrations := []*arangom.Migration{
 		{
-			Path:       "0001.initial", // any unique identifier
+			Path: "0001.initial", // any unique identifier
 			Operations: []arangom.Operation{
 				{
 					Kind:       arangom.OperationKindCollectionCreate,
 					Collection: os.Getenv("ARANGO_MIGRATION_COLLECTION"),
-					Options:    map[string]any{
+					Options: map[string]any{
 						"waitForSync": true,
 					},
 				},
@@ -203,32 +207,33 @@ options that are not supported by ArangoDB. These options are documented in the
 table below with the caveat column. For more information about operation
 options, please refer to the [ArangoDB documentation].
 
-| Operation kind          | Description                               | Caveats                 |
-|-------------------------|-------------------------------------------|-------------------------|
-| `executeAQL`            | Executes an AQL query.                    | [executeAQL]            |
-| `createCollection`      | Creates a new collection.                 | -                       |
-| `updateCollection`      | Updates an existing collection.           | -                       |
-| `deleteCollection`      | Deletes an existing collection.           | -                       |
-| `createGraph`           | Creates a new graph.                      | [createGraph]           |
-| `addVertexToGraph`      | Adds a vertex collection to a graph.      | [addVertexToGraph]      |
-| `removeVertexFromGraph` | Removes a vertex collection from a graph. | [removeVertexFromGraph] |
-| `addEdgeToGraph`        | Adds an edge definition to a graph.       | [addEdgeToGraph]        |
-| `removeEdgeFromGraph`   | Removes an edge definition from a graph.  | [removeEdgeFromGraph]   |
-| `deleteGraph`           | Deletes an existing graph.                | [deleteGraph]           |
-| `createView`            | Creates a new search view.                | [createView]            |
-| `updateView`            | Updates an existing search view.          | [updateView]            |
-| `deleteView`            | Deletes an existing search view.          | [deleteView]            |
-| `createFulltextIndex`   | Creates a fulltext index.                 | [createFulltextIndex]   |
-| `createGeoSpatialIndex` | Creates a Geo-spatial index.              | [createGeoSpatialIndex] |
-| `createHashIndex`       | Creates a hash index.                     | [createHashIndex]       |
-| `createInvertedIndex`   | Creates an inverted index.                | -                       |
-| `createPersistentIndex` | Creates a persistent index.               | [createPersistentIndex] |
-| `createSkipListIndex`   | Creates a skiplist index.                 | [createSkipListIndex]   |
-| `createTTLIndex`        | Creates a TTL index.                      | [createTTLIndex]        |
-| `createZKDIndex`        | Creates a ZKD index.                      | [createZKDIndex]        |
-| `deleteIndex`           | Deletes an index.                         | [deleteIndex]           |
-| `createAnalyzer`        | Creates an analyzer.                      | [createAnalyzer]        |
-| `deleteAnalyzer`        | Deletes an analyzer.                      | [deleteIndex]           |
+| Operation kind             | Description                                      | Caveats                    |
+|----------------------------|--------------------------------------------------|----------------------------|
+| `executeAQL`               | Executes an AQL query.                           | [executeAQL]               |
+| `createCollection`         | Creates a new collection.                        | -                          |
+| `updateCollection`         | Updates an existing collection.                  | -                          |
+| `deleteCollection`         | Deletes an existing collection.                  | -                          |
+| `createGraph`              | Creates a new graph.                             | [createGraph]              |
+| `addVertexToGraph`         | Adds a vertex collection to a graph.             | [addVertexToGraph]         |
+| `removeVertexFromGraph`    | Removes a vertex collection from a graph.        | [removeVertexFromGraph]    |
+| `addEdgeToGraph`           | Adds an edge definition to a graph.              | [addEdgeToGraph]           |
+| `removeEdgeFromGraph`      | Removes an edge definition from a graph.         | [removeEdgeFromGraph]      |
+| `deleteGraph`              | Deletes an existing graph.                       | [deleteGraph]              |
+| `createView`               | Creates an ArangoSearch view.                    | [createView]               |
+| `updateView`               | Updates an ArangoSearch view.                    | [updateView]               |
+| `createSearchAliasView`    | Creates a search-alias view.                     | [createSearchAliasView]    |
+| `updateSearchAliasView`    | Replaces the indexes of a search-alias view.     | [updateSearchAliasView]    |
+| `deleteView`               | Deletes an ArangoSearch or search-alias view.    | [deleteView]               |
+| `createGeoSpatialIndex`    | Creates a geo index.                             | [createGeoSpatialIndex]    |
+| `createInvertedIndex`      | Creates an inverted index.                       | -                          |
+| `createPersistentIndex`    | Creates a persistent index.                      | [createPersistentIndex]    |
+| `createTTLIndex`           | Creates a TTL index.                             | [createTTLIndex]           |
+| `createMDIIndex`           | Creates an MDI index.                            | [createMDIIndex]           |
+| `createMDIPrefixedIndex`   | Creates an MDI index with prefix fields.         | [createMDIPrefixedIndex]   |
+| `createVectorIndex`        | Creates a vector index.                          | [createVectorIndex]        |
+| `deleteIndex`              | Deletes an index.                                | [deleteIndex]              |
+| `createAnalyzer`           | Creates an analyzer.                             | [createAnalyzer]           |
+| `deleteAnalyzer`           | Deletes an analyzer.                             | [deleteAnalyzer]           |
 
 Database operations are intentionally not supported. To apply migrations on a
 database, create the database first. **Feature requests and/or pull requests
@@ -245,13 +250,14 @@ are welcomed for other missing operations.**
 [createView]: #createview-options
 [updateView]: #updateview-options
 [deleteView]: #deleteview-options
-[createFulltextIndex]: #createfulltextindex-options
+[createSearchAliasView]: #createsearchaliasview-options
+[updateSearchAliasView]: #updatesearchaliasview-options
 [createGeoSpatialIndex]: #creategeospatialindex-options
-[createHashIndex]: #createhashindex-options
 [createPersistentIndex]: #createpersistentindex-options
-[createSkipListIndex]: #createskiplistindex-options
 [createTTLIndex]: #createttlindex-options
-[createZKDIndex]: #createzkdindex-options
+[createMDIIndex]: #createmdiindex-options
+[createMDIPrefixedIndex]: #createmdiprefixedindex-options
+[createVectorIndex]: #createvectorindex-options
 [deleteIndex]: #deleteindex-options
 [createAnalyzer]: #createanalyzer-options
 [deleteAnalyzer]: #deleteanalyzer-options
@@ -271,7 +277,9 @@ following options:
 
 #### `createGraph` options
 
-The graph name is defined in the `collection` field of the operation.
+The graph name is defined in the `collection` field of the operation. Orphan
+vertex collections use `orphanCollections`. `satellites` is passed as a graph
+create option.
 
 #### `addVertexToGraph` options
 
@@ -329,15 +337,21 @@ The view name is defined in the `collection` field of the operation.
 
 The view name is defined in the `collection` field of the operation.
 
+#### `createSearchAliasView` options
+
+The view name is defined in the `collection` field of the operation. `indexes`
+lists the inverted indexes the alias exposes. Each entry has `collection` and
+`index`.
+
+#### `updateSearchAliasView` options
+
+The view name is defined in the `collection` field of the operation. The
+`indexes` list replaces the indexes stored on the view.
+
 #### `deleteView` options
 
-#### `createFulltextIndex` options
-
-The options of the operation is extended with the following options:
-
-| Option name | Description                  |
-|-------------|------------------------------|
-| `fields`    | The list of fields to index. |
+The view name is defined in the `collection` field of the operation. This
+removes either an ArangoSearch view or a search-alias view.
 
 #### `createGeoSpatialIndex` options
 
@@ -347,23 +361,7 @@ The options of the operation is extended with the following options:
 |-------------|------------------------------|
 | `fields`    | The list of fields to index. |
 
-#### `createHashIndex` options
-
-The options of the operation is extended with the following options:
-
-| Option name | Description                  |
-|-------------|------------------------------|
-| `fields`    | The list of fields to index. |
-
 #### `createPersistentIndex` options
-
-The options of the operation is extended with the following options:
-
-| Option name | Description                  |
-|-------------|------------------------------|
-| `fields`    | The list of fields to index. |
-
-#### `createSkipListIndex` options
 
 The options of the operation is extended with the following options:
 
@@ -380,13 +378,22 @@ The options of the operation is extended with the following options:
 | `field`       | The field to index.             |
 | `expireAfter` | The expiration time in seconds. |
 
-#### `createZKDIndex` options
+#### `createMDIIndex` options
 
-The options of the operation is extended with the following options:
+`fields` lists the attributes to index. When `fieldValueTypes` is omitted,
+arangom sends `double`, the only value the driver accepts.
 
-| Option name | Description                  |
-|-------------|------------------------------|
-| `fields`    | The list of fields to index. |
+#### `createMDIPrefixedIndex` options
+
+`fields` lists the attributes to index. `prefixFields` lists the equality
+prefix attributes and is required. When `fieldValueTypes` is omitted, arangom
+sends `double`.
+
+#### `createVectorIndex` options
+
+`fields` must contain exactly one attribute. `params` is required and must
+include `dimension` and `metric`. `params.nLists` may be a number or a scaling
+object.
 
 #### `deleteIndex` options
 
@@ -398,7 +405,8 @@ The options of the operation is extended with the following options:
 
 #### `createAnalyzer` options
 
-In case analyzer with the same name already exists, the operation will fail.
+If an analyzer with the same name already exists, the operation succeeds and
+leaves that analyzer in place.
 
 | Option name  | Description                                      |
 |--------------|--------------------------------------------------|
@@ -416,11 +424,12 @@ In case analyzer with the same name already exists, the operation will fail.
 
 ## Compatibility
 
-The compatibility of arangom is equal to the compatibility of the ArangoDB
-Go driver. For more information, please refer to the [ArangoDB Go driver
-documentation].
+Release 0.4.1 is the last release that supports the ArangoDB Go driver v1.
+Later releases use driver v2 only and require Go 1.25 or newer. Migrations
+receive an `arangodb.Database`. For supported ArangoDB versions, refer to the
+[ArangoDB Go driver documentation].
 
-[ArangoDB Go driver documentation]: https://github.com/arangodb/go-driver#supported-versions
+[ArangoDB Go driver documentation]: https://docs.arango.ai/ecosystem/drivers/go/
 
 ## Q&A
 
@@ -434,6 +443,18 @@ project instead.
 ### Why using `collection` for the name of the graph and view?
 
 The naming is indeed confusing, and I am open to suggestions.
+
+## Integration tests
+
+Integration tests apply the YAML scenarios in `testdata/integration` to
+ArangoDB. Docker is required. Each scenario runs in a new database, and that
+database is removed when the scenario finishes.
+
+```bash
+make test-integration
+```
+
+`make test` does not start ArangoDB and does not run this suite.
 
 ## Contributing
 

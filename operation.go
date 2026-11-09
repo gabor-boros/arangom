@@ -5,36 +5,37 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/arangodb/go-driver"
+	"github.com/arangodb/go-driver/v2/arangodb"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	OperationKindAQLExecute            OperationKind = iota + 1 // operation to execute an AQL query
-	OperationKindCollectionCreate                               // operation to create a collection
-	OperationKindCollectionUpdate                               // operation to update a collection
-	OperationKindCollectionDelete                               // operation to delete a collection
-	OperationKindGraphCreate                                    // operation to create a graph
-	OperationKindGraphAddVertex                                 // operation to add a vertex collection to a graph
-	OperationKindGraphRemoveVertex                              // operation to remove a vertex collection from a graph
-	OperationKindGraphAddEdge                                   // operation to add an edge definition to a graph
-	OperationKindGraphRemoveEdge                                // operation to remove an edge definition from a graph
-	OperationKindGraphDelete                                    // operation to delete a graph
-	OperationKindViewCreate                                     // operation to create a view
-	OperationKindViewUpdate                                     // operation to update a view
-	OperationKindViewDelete                                     // operation to delete a view
-	OperationKindFulltextIndexCreate                            // operation to create a fulltext index
-	OperationKindGeoSpatialIndexCreate                          // operation to create a geospatial index
-	OperationKindHashIndexCreate                                // operation to create a hash index
-	OperationKindInvertedIndexCreate                            // operation to create an inverted index
-	OperationKindPersistentIndexCreate                          // operation to create a persistent index
-	OperationKindSkipListIndexCreate                            // operation to create a skiplist index
-	OperationKindTTLIndexCreate                                 // operation to create a TTL index
-	OperationKindZKDIndexCreate                                 // operation to create a ZKD index
-	OperationKindIndexDelete                                    // operation to delete an index
-	OperationKindAnalyzerCreate                                 // operation to delete an index
-	OperationKindAnalyzerDelete                                 // operation to delete an index
+	OperationKindAQLExecute             OperationKind = 1  // executeAQL
+	OperationKindCollectionCreate       OperationKind = 2  // createCollection
+	OperationKindCollectionUpdate       OperationKind = 3  // updateCollection
+	OperationKindCollectionDelete       OperationKind = 4  // deleteCollection
+	OperationKindGraphCreate            OperationKind = 5  // createGraph
+	OperationKindGraphAddVertex         OperationKind = 6  // addVertexToGraph
+	OperationKindGraphRemoveVertex      OperationKind = 7  // removeVertexFromGraph
+	OperationKindGraphAddEdge           OperationKind = 8  // addEdgeToGraph
+	OperationKindGraphRemoveEdge        OperationKind = 9  // removeEdgeFromGraph
+	OperationKindGraphDelete            OperationKind = 10 // deleteGraph
+	OperationKindViewCreate             OperationKind = 11 // createView
+	OperationKindViewUpdate             OperationKind = 12 // updateView
+	OperationKindViewDelete             OperationKind = 13 // deleteView
+	OperationKindGeoSpatialIndexCreate  OperationKind = 15 // createGeoSpatialIndex
+	OperationKindInvertedIndexCreate    OperationKind = 17 // createInvertedIndex
+	OperationKindPersistentIndexCreate  OperationKind = 18 // createPersistentIndex
+	OperationKindTTLIndexCreate         OperationKind = 20 // createTTLIndex
+	OperationKindMDIIndexCreate         OperationKind = 21 // createMDIIndex
+	OperationKindIndexDelete            OperationKind = 22 // deleteIndex
+	OperationKindAnalyzerCreate         OperationKind = 23 // createAnalyzer
+	OperationKindAnalyzerDelete         OperationKind = 24 // deleteAnalyzer
+	OperationKindMDIPrefixedIndexCreate OperationKind = 25 // createMDIPrefixedIndex
+	OperationKindVectorIndexCreate      OperationKind = 26 // createVectorIndex
+	OperationKindSearchAliasViewCreate  OperationKind = 27 // createSearchAliasView
+	OperationKindSearchAliasViewUpdate  OperationKind = 28 // updateSearchAliasView
 )
 
 var (
@@ -42,77 +43,53 @@ var (
 	// specified.
 	ErrInvalidOperationKind = fmt.Errorf("invalid operation kind")
 
-	// operationMap is a map of operation names to operation kinds.
-	operationMap = map[string]OperationKind{
-		"executeAQL":            OperationKindAQLExecute,
-		"createCollection":      OperationKindCollectionCreate,
-		"updateCollection":      OperationKindCollectionUpdate,
-		"deleteCollection":      OperationKindCollectionDelete,
-		"createGraph":           OperationKindGraphCreate,
-		"addVertexToGraph":      OperationKindGraphAddVertex,
-		"removeVertexFromGraph": OperationKindGraphRemoveVertex,
-		"addEdgeToGraph":        OperationKindGraphAddEdge,
-		"removeEdgeFromGraph":   OperationKindGraphRemoveEdge,
-		"deleteGraph":           OperationKindGraphDelete,
-		"createView":            OperationKindViewCreate,
-		"updateView":            OperationKindViewUpdate,
-		"deleteView":            OperationKindViewDelete,
-		"createFulltextIndex":   OperationKindFulltextIndexCreate,
-		"createGeoSpatialIndex": OperationKindGeoSpatialIndexCreate,
-		"createHashIndex":       OperationKindHashIndexCreate,
-		"createInvertedIndex":   OperationKindInvertedIndexCreate,
-		"createPersistentIndex": OperationKindPersistentIndexCreate,
-		"createSkipListIndex":   OperationKindSkipListIndexCreate,
-		"createTTLIndex":        OperationKindTTLIndexCreate,
-		"createZKDIndex":        OperationKindZKDIndexCreate,
-		"deleteIndex":           OperationKindIndexDelete,
-		"createAnalyzer":        OperationKindAnalyzerCreate,
-		"deleteAnalyzer":        OperationKindAnalyzerDelete,
-	}
-
 	// operationKindMap is a map of operation kinds to operations.
 	operationKindMap = map[OperationKind]func(o *Operation) OperationFn{
-		OperationKindAQLExecute:            ExecuteAQLOperation,
-		OperationKindCollectionCreate:      CreateCollectionOperation,
-		OperationKindCollectionUpdate:      UpdateCollectionOperation,
-		OperationKindCollectionDelete:      DeleteCollectionOperation,
-		OperationKindGraphCreate:           CreateGraphOperation,
-		OperationKindGraphAddVertex:        AddVertexOperation,
-		OperationKindGraphRemoveVertex:     RemoveVertexOperation,
-		OperationKindGraphAddEdge:          AddEdgeOperation,
-		OperationKindGraphRemoveEdge:       RemoveEdgeOperation,
-		OperationKindGraphDelete:           DeleteGraphOperation,
-		OperationKindViewCreate:            CreateViewOperation,
-		OperationKindViewUpdate:            UpdateViewOperation,
-		OperationKindViewDelete:            DeleteViewOperation,
-		OperationKindFulltextIndexCreate:   CreateFulltextIndexOperation,
-		OperationKindGeoSpatialIndexCreate: CreateGeoSpatialIndexOperation,
-		OperationKindHashIndexCreate:       CreateHashIndexOperation,
-		OperationKindInvertedIndexCreate:   CreateInvertedIndexOperation,
-		OperationKindPersistentIndexCreate: CreatePersistentIndexOperation,
-		OperationKindSkipListIndexCreate:   CreateSkipListIndexOperation,
-		OperationKindTTLIndexCreate:        CreateTTLIndexOperation,
-		OperationKindZKDIndexCreate:        CreateZKDIndexOperation,
-		OperationKindIndexDelete:           DeleteIndexOperation,
-		OperationKindAnalyzerCreate:        CreateAnalyzerOperation,
-		OperationKindAnalyzerDelete:        DeleteAnalyzerOperation,
+		OperationKindAQLExecute:             ExecuteAQLOperation,
+		OperationKindCollectionCreate:       CreateCollectionOperation,
+		OperationKindCollectionUpdate:       UpdateCollectionOperation,
+		OperationKindCollectionDelete:       DeleteCollectionOperation,
+		OperationKindGraphCreate:            CreateGraphOperation,
+		OperationKindGraphAddVertex:         AddVertexOperation,
+		OperationKindGraphRemoveVertex:      RemoveVertexOperation,
+		OperationKindGraphAddEdge:           AddEdgeOperation,
+		OperationKindGraphRemoveEdge:        RemoveEdgeOperation,
+		OperationKindGraphDelete:            DeleteGraphOperation,
+		OperationKindViewCreate:             CreateViewOperation,
+		OperationKindViewUpdate:             UpdateViewOperation,
+		OperationKindViewDelete:             DeleteViewOperation,
+		OperationKindGeoSpatialIndexCreate:  CreateGeoSpatialIndexOperation,
+		OperationKindInvertedIndexCreate:    CreateInvertedIndexOperation,
+		OperationKindPersistentIndexCreate:  CreatePersistentIndexOperation,
+		OperationKindTTLIndexCreate:         CreateTTLIndexOperation,
+		OperationKindMDIIndexCreate:         CreateMDIIndexOperation,
+		OperationKindIndexDelete:            DeleteIndexOperation,
+		OperationKindAnalyzerCreate:         CreateAnalyzerOperation,
+		OperationKindAnalyzerDelete:         DeleteAnalyzerOperation,
+		OperationKindMDIPrefixedIndexCreate: CreateMDIPrefixedIndexOperation,
+		OperationKindVectorIndexCreate:      CreateVectorIndexOperation,
+		OperationKindSearchAliasViewCreate:  CreateSearchAliasViewOperation,
+		OperationKindSearchAliasViewUpdate:  UpdateSearchAliasViewOperation,
 	}
 )
 
 // OperationFn runs an operation on a database.
-type OperationFn func(ctx context.Context, db driver.Database) error
+type OperationFn func(ctx context.Context, db arangodb.Database) error
 
 // OperationKind is the kind of operation to run.
+//
+//go:generate go tool enumer -type=OperationKind -linecomment -output=operationkind_enumer.go
 type OperationKind int
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (o *OperationKind) UnmarshalYAML(value *yaml.Node) error {
-	if kind, ok := operationMap[value.Value]; ok {
-		*o = kind
-		return nil
+	kind, err := OperationKindString(value.Value)
+	if err != nil {
+		return errors.Wrap(ErrInvalidOperationKind, value.Value)
 	}
 
-	return errors.Wrap(ErrInvalidOperationKind, value.Value)
+	*o = kind
+	return nil
 }
 
 // Operation is an operation to run in a migration.
@@ -147,7 +124,7 @@ func convertToOperationOptions(opts map[string]any, dst any) error {
 
 // ExecuteAQLOperation executes an AQL query.
 func ExecuteAQLOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type aqlOpts struct {
 			Query    string         `json:"query"`
 			BindVars map[string]any `json:"bindVars"`
@@ -158,66 +135,55 @@ func ExecuteAQLOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		_, err := db.Query(ctx, opts.Query, opts.BindVars)
+		cursor, err := db.Query(ctx, opts.Query, &arangodb.QueryOptions{BindVars: opts.BindVars})
+		if err != nil {
+			return err
+		}
+		if cursor == nil {
+			return nil
+		}
 
-		return err
+		return cursor.CloseWithContext(ctx)
 	}
 }
 
 // CreateCollectionOperation creates a collection.
 func CreateCollectionOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.CreateCollectionOptions{}
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.CreateCollectionPropertiesV2{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
 
-		_, err := db.CreateCollection(ctx, o.Collection, &opts)
+		_, err := db.CreateCollectionV2(ctx, o.Collection, &opts)
 		return err
 	}
 }
 
 // UpdateCollectionOperation updates a collection's properties.
 //
-// The options are sent as the request body unchanged. Going through
-// driver.SetCollectionPropertiesOptions would drop computedValues, which its
-// JSON round-trip does not copy, and could not send an empty list to remove them.
+// Computed values are decoded into SetCollectionPropertiesOptionsV2. An empty
+// list is kept, so a migration can remove computed values.
 func UpdateCollectionOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		conn := ConnectionFromContext(ctx)
-		if conn == nil {
-			return fmt.Errorf("connection is required for updateCollection operation; use WithConnection option")
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.SetCollectionPropertiesOptionsV2{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
 		}
 
-		body := o.Options
-		if body == nil {
-			body = map[string]any{}
-		}
-
-		reqPath := fmt.Sprintf("/_db/%s/_api/collection/%s/properties", db.Name(), o.Collection)
-		req, err := conn.NewRequest("PUT", reqPath)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
-			return fmt.Errorf("failed to create update collection request: %w", err)
+			return err
 		}
 
-		req, err = req.SetBody(body)
-		if err != nil {
-			return fmt.Errorf("failed to set update collection request body: %w", err)
-		}
-
-		resp, err := conn.Do(ctx, req)
-		if err != nil {
-			return fmt.Errorf("failed to update collection: %w", err)
-		}
-
-		return resp.CheckStatus(200)
+		return coll.SetPropertiesV2(ctx, opts)
 	}
 }
 
 // DeleteCollectionOperation removes a collection.
 func DeleteCollectionOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		coll, err := db.Collection(ctx, o.Collection)
+	return func(ctx context.Context, db arangodb.Database) error {
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
@@ -228,22 +194,33 @@ func DeleteCollectionOperation(o *Operation) OperationFn {
 
 // CreateGraphOperation creates a graph.
 func CreateGraphOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.CreateGraphOptions{}
+	return func(ctx context.Context, db arangodb.Database) error {
+		type graphCreateOptions struct {
+			arangodb.GraphDefinition
+			Satellites []string `json:"satellites,omitempty"`
+		}
+
+		opts := graphCreateOptions{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
 
-		_, err := db.CreateGraphV2(ctx, o.Collection, &opts)
+		var createOpts *arangodb.CreateGraphOptions
+		if len(opts.Satellites) > 0 {
+			createOpts = &arangodb.CreateGraphOptions{Satellites: opts.Satellites}
+		}
+
+		_, err := db.CreateGraph(ctx, o.Collection, &opts.GraphDefinition, createOpts)
+
 		return err
 	}
 }
 
 // AddVertexOperation adds a vertex collection to a graph.
 func AddVertexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type addVertexOpts struct {
-			driver.CreateVertexCollectionOptions
+			arangodb.CreateVertexCollectionOptions
 			Collection string `json:"collection"`
 		}
 
@@ -252,12 +229,12 @@ func AddVertexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		graph, err := db.Graph(ctx, o.Collection)
+		graph, err := db.Graph(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, err = graph.CreateVertexCollectionWithOptions(ctx, opts.Collection, opts.CreateVertexCollectionOptions)
+		_, err = graph.CreateVertexCollection(ctx, opts.Collection, &opts.CreateVertexCollectionOptions)
 
 		return err
 	}
@@ -265,7 +242,7 @@ func AddVertexOperation(o *Operation) OperationFn {
 
 // RemoveVertexOperation removes a vertex collection from a graph.
 func RemoveVertexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type removeVertexOpts struct {
 			Collection string `json:"collection"`
 		}
@@ -275,27 +252,27 @@ func RemoveVertexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		graph, err := db.Graph(ctx, o.Collection)
+		graph, err := db.Graph(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		vertex, err := graph.VertexCollection(ctx, opts.Collection)
-		if err != nil {
-			return err
-		}
+		_, err = graph.DeleteVertexCollection(ctx, opts.Collection, nil)
 
-		return vertex.Remove(ctx)
+		return err
 	}
 }
 
 // AddEdgeOperation adds an edge definition to a graph.
 func AddEdgeOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type addEdgeOpts struct {
-			driver.CreateEdgeCollectionOptions
-			Collection  string                   `json:"collection"`
-			Constraints driver.VertexConstraints `json:"constraints"`
+			arangodb.CreateEdgeDefinitionOptions
+			Collection  string `json:"collection"`
+			Constraints struct {
+				From []string `json:"from"`
+				To   []string `json:"to"`
+			} `json:"constraints"`
 		}
 
 		opts := addEdgeOpts{}
@@ -303,12 +280,12 @@ func AddEdgeOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		graph, err := db.Graph(ctx, o.Collection)
+		graph, err := db.Graph(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, err = graph.CreateEdgeCollectionWithOptions(ctx, opts.Collection, opts.Constraints, opts.CreateEdgeCollectionOptions)
+		_, err = graph.CreateEdgeDefinition(ctx, opts.Collection, opts.Constraints.From, opts.Constraints.To, &opts.CreateEdgeDefinitionOptions)
 
 		return err
 	}
@@ -316,7 +293,7 @@ func AddEdgeOperation(o *Operation) OperationFn {
 
 // RemoveEdgeOperation removes an edge definition from a graph.
 func RemoveEdgeOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type removeEdgeOpts struct {
 			Collection string `json:"collection"`
 		}
@@ -326,36 +303,33 @@ func RemoveEdgeOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		graph, err := db.Graph(ctx, o.Collection)
+		graph, err := db.Graph(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		edge, _, err := graph.EdgeCollection(ctx, opts.Collection)
-		if err != nil {
-			return err
-		}
+		_, err = graph.DeleteEdgeDefinition(ctx, opts.Collection, nil)
 
-		return edge.Remove(ctx)
+		return err
 	}
 }
 
 // DeleteGraphOperation deletes a graph.
 func DeleteGraphOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		graph, err := db.Graph(ctx, o.Collection)
+	return func(ctx context.Context, db arangodb.Database) error {
+		graph, err := db.Graph(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		return graph.Remove(ctx)
+		return graph.Remove(ctx, nil)
 	}
 }
 
 // CreateViewOperation creates a search view.
 func CreateViewOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.ArangoSearchViewProperties{}
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.ArangoSearchViewProperties{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
@@ -367,8 +341,8 @@ func CreateViewOperation(o *Operation) OperationFn {
 
 // UpdateViewOperation updates an existing search view.
 func UpdateViewOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.ArangoSearchViewProperties{}
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.ArangoSearchViewProperties{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
@@ -389,7 +363,7 @@ func UpdateViewOperation(o *Operation) OperationFn {
 
 // DeleteViewOperation removes a search view.
 func DeleteViewOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		view, err := db.View(ctx, o.Collection)
 		if err != nil {
 			return err
@@ -399,33 +373,10 @@ func DeleteViewOperation(o *Operation) OperationFn {
 	}
 }
 
-func CreateFulltextIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		type fulltextIndexOpts struct {
-			driver.EnsureFullTextIndexOptions
-			Fields []string `json:"fields"`
-		}
-
-		opts := fulltextIndexOpts{}
-		if err := convertToOperationOptions(o.Options, &opts); err != nil {
-			return err
-		}
-
-		coll, err := db.Collection(ctx, o.Collection)
-		if err != nil {
-			return err
-		}
-
-		_, _, err = coll.EnsureFullTextIndex(ctx, opts.Fields, &opts.EnsureFullTextIndexOptions) //nolint:staticcheck
-
-		return err
-	}
-}
-
 func CreateGeoSpatialIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type geoSpatialIndexOpts struct {
-			driver.EnsureGeoIndexOptions
+			arangodb.CreateGeoIndexOptions
 			Fields []string `json:"fields"`
 		}
 
@@ -434,48 +385,25 @@ func CreateGeoSpatialIndexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = coll.EnsureGeoIndex(ctx, opts.Fields, &opts.EnsureGeoIndexOptions)
-
-		return err
-	}
-}
-
-func CreateHashIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		type hashIndexOpts struct {
-			driver.EnsureHashIndexOptions
-			Fields []string `json:"fields"`
-		}
-
-		opts := hashIndexOpts{}
-		if err := convertToOperationOptions(o.Options, &opts); err != nil {
-			return err
-		}
-
-		coll, err := db.Collection(ctx, o.Collection)
-		if err != nil {
-			return err
-		}
-
-		_, _, err = coll.EnsureHashIndex(ctx, opts.Fields, &opts.EnsureHashIndexOptions)
+		_, _, err = coll.EnsureGeoIndex(ctx, opts.Fields, &opts.CreateGeoIndexOptions)
 
 		return err
 	}
 }
 
 func CreateInvertedIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.InvertedIndexOptions{}
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.InvertedIndexOptions{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
@@ -487,9 +415,9 @@ func CreateInvertedIndexOperation(o *Operation) OperationFn {
 }
 
 func CreatePersistentIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type persistentIndexOpts struct {
-			driver.EnsurePersistentIndexOptions
+			arangodb.CreatePersistentIndexOptions
 			Fields []string `json:"fields"`
 		}
 
@@ -498,44 +426,21 @@ func CreatePersistentIndexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = coll.EnsurePersistentIndex(ctx, opts.Fields, &opts.EnsurePersistentIndexOptions)
-
-		return err
-	}
-}
-
-func CreateSkipListIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		type skipListIndexOpts struct {
-			driver.EnsureSkipListIndexOptions
-			Fields []string `json:"fields"`
-		}
-
-		opts := skipListIndexOpts{}
-		if err := convertToOperationOptions(o.Options, &opts); err != nil {
-			return err
-		}
-
-		coll, err := db.Collection(ctx, o.Collection)
-		if err != nil {
-			return err
-		}
-
-		_, _, err = coll.EnsureSkipListIndex(ctx, opts.Fields, &opts.EnsureSkipListIndexOptions)
+		_, _, err = coll.EnsurePersistentIndex(ctx, opts.Fields, &opts.CreatePersistentIndexOptions)
 
 		return err
 	}
 }
 
 func CreateTTLIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type ttlIndexOpts struct {
-			driver.EnsureTTLIndexOptions
+			arangodb.CreateTTLIndexOptions
 			Field       string `json:"field"`
 			ExpireAfter int    `json:"expireAfter"`
 		}
@@ -545,42 +450,100 @@ func CreateTTLIndexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = coll.EnsureTTLIndex(ctx, opts.Field, opts.ExpireAfter, &opts.EnsureTTLIndexOptions)
+		_, _, err = coll.EnsureTTLIndex(ctx, []string{opts.Field}, opts.ExpireAfter, &opts.CreateTTLIndexOptions)
 
 		return err
 	}
 }
 
-func CreateZKDIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		type zkdIndexOpts struct {
-			driver.EnsureZKDIndexOptions
+// defaultMDIFieldType fills the only field value type the driver accepts.
+func defaultMDIFieldType(fieldType arangodb.MDIFieldType) arangodb.MDIFieldType {
+	if fieldType == "" {
+		return arangodb.MDIDoubleFieldType
+	}
+
+	return fieldType
+}
+
+func CreateMDIIndexOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db arangodb.Database) error {
+		type mdiIndexOpts struct {
+			arangodb.CreateMDIIndexOptions
 			Fields []string `json:"fields"`
 		}
 
-		opts := zkdIndexOpts{}
+		opts := mdiIndexOpts{}
 		if err := convertToOperationOptions(o.Options, &opts); err != nil {
 			return err
 		}
+		opts.FieldValueTypes = defaultMDIFieldType(opts.FieldValueTypes)
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		_, _, err = coll.EnsureZKDIndex(ctx, opts.Fields, &opts.EnsureZKDIndexOptions)
+		_, _, err = coll.EnsureMDIIndex(ctx, opts.Fields, &opts.CreateMDIIndexOptions)
+
+		return err
+	}
+}
+
+func CreateMDIPrefixedIndexOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db arangodb.Database) error {
+		type mdiPrefixedIndexOpts struct {
+			arangodb.CreateMDIPrefixedIndexOptions
+			Fields []string `json:"fields"`
+		}
+
+		opts := mdiPrefixedIndexOpts{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+		opts.FieldValueTypes = defaultMDIFieldType(opts.FieldValueTypes)
+
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = coll.EnsureMDIPrefixedIndex(ctx, opts.Fields, &opts.CreateMDIPrefixedIndexOptions)
+
+		return err
+	}
+}
+
+func CreateVectorIndexOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db arangodb.Database) error {
+		type vectorIndexOpts struct {
+			arangodb.CreateVectorIndexOptions
+			Fields []string              `json:"fields"`
+			Params arangodb.VectorParams `json:"params"`
+		}
+
+		opts := vectorIndexOpts{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = coll.EnsureVectorIndex(ctx, opts.Fields, &opts.Params, &opts.CreateVectorIndexOptions)
 
 		return err
 	}
 }
 
 func DeleteIndexOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
+	return func(ctx context.Context, db arangodb.Database) error {
 		type deleteIndexOpts struct {
 			Name string `json:"name"`
 		}
@@ -590,65 +553,64 @@ func DeleteIndexOperation(o *Operation) OperationFn {
 			return err
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		coll, err := db.GetCollection(ctx, o.Collection, nil)
 		if err != nil {
 			return err
 		}
 
-		index, err := coll.Index(ctx, opts.Name)
-		if err != nil {
-			return err
-		}
-
-		return index.Remove(ctx)
+		return coll.DeleteIndex(ctx, opts.Name)
 	}
 }
 
 func CreateAnalyzerOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-		conn := ConnectionFromContext(ctx)
-		if conn == nil {
-			return fmt.Errorf("connection is required for createAnalyzer operation; use WithConnection option")
-		}
-
-		body := map[string]any{
-			"name": o.Options["name"], //nolint:goconst // analyzer API field name
-			"type": o.Options["type"], //nolint:goconst // analyzer API field name
-		}
-		if p, ok := o.Options["properties"]; ok {
-			body["properties"] = p
-		}
-		if f, ok := o.Options["features"]; ok {
-			body["features"] = f
-		}
-
-		reqPath := fmt.Sprintf("/_db/%s/_api/analyzer", db.Name())
-		req, err := conn.NewRequest("POST", reqPath)
-		if err != nil {
-			return fmt.Errorf("failed to create analyzer request: %w", err)
-		}
-
-		req, err = req.SetBody(body)
-		if err != nil {
-			return fmt.Errorf("failed to set analyzer request body: %w", err)
-		}
-
-		resp, err := conn.Do(ctx, req)
-		if err != nil {
-			return fmt.Errorf("failed to create analyzer: %w", err)
-		}
-
-		if err := resp.CheckStatus(200, 201); err != nil {
+	return func(ctx context.Context, db arangodb.Database) error {
+		analyzer := arangodb.AnalyzerDefinition{}
+		if err := convertToOperationOptions(o.Options, &analyzer); err != nil {
 			return err
 		}
 
-		return nil
+		_, _, err := db.EnsureCreatedAnalyzer(ctx, &analyzer)
+
+		return err
+	}
+}
+
+func CreateSearchAliasViewOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.ArangoSearchAliasViewProperties{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+
+		_, err := db.CreateArangoSearchAliasView(ctx, o.Collection, &opts)
+
+		return err
+	}
+}
+
+func UpdateSearchAliasViewOperation(o *Operation) OperationFn {
+	return func(ctx context.Context, db arangodb.Database) error {
+		opts := arangodb.ArangoSearchAliasViewProperties{}
+		if err := convertToOperationOptions(o.Options, &opts); err != nil {
+			return err
+		}
+
+		view, err := db.View(ctx, o.Collection)
+		if err != nil {
+			return err
+		}
+
+		alias, err := view.ArangoSearchViewAlias()
+		if err != nil {
+			return err
+		}
+
+		return alias.SetProperties(ctx, opts)
 	}
 }
 
 func DeleteAnalyzerOperation(o *Operation) OperationFn {
-	return func(ctx context.Context, db driver.Database) error {
-
+	return func(ctx context.Context, db arangodb.Database) error {
 		type deleteAnalyzerOpts struct {
 			Name  string `json:"name"`
 			Force bool   `json:"force"`

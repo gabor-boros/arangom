@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	arangoDriver "github.com/arangodb/go-driver"
-	arangoHTTP "github.com/arangodb/go-driver/http"
+	"github.com/arangodb/go-driver/v2/arangodb"
+	"github.com/arangodb/go-driver/v2/connection"
 	"gopkg.in/yaml.v3"
 
 	"github.com/gabor-boros/arangom"
@@ -89,39 +89,33 @@ func validateFlags() error {
 	return nil
 }
 
-func initDatabase() (arangoDriver.Database, arangoDriver.Connection, error) {
-	conn, err := arangoHTTP.NewConnection(arangoHTTP.ConnectionConfig{
-		Endpoints: strings.Split(dbEndpoints, ","),
+func initDatabase() (arangodb.Database, error) {
+	endpoint := connection.NewRoundRobinEndpoints(strings.Split(dbEndpoints, ","))
+	conn := connection.NewHttpConnection(connection.HttpConfiguration{
+		Endpoint:       endpoint,
+		Authentication: connection.NewBasicAuth(dbUsername, dbPassword),
 	})
+
+	client := arangodb.NewClient(conn)
+	ctx := context.Background()
+
+	db, err := client.GetDatabase(ctx, dbName, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	client, err := arangoDriver.NewClient(arangoDriver.ClientConfig{
-		Connection:     conn,
-		Authentication: arangoDriver.BasicAuthentication(dbUsername, dbPassword),
-	})
+	collExists, err := db.CollectionExists(ctx, collection)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	db, err := client.Database(context.Background(), dbName)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	collExists, err := db.CollectionExists(context.Background(), collection)
-	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if !collExists && createCollection {
-		if _, err := db.CreateCollection(context.Background(), collection, nil); err != nil {
-			return nil, nil, err
+		if _, err := db.CreateCollectionV2(ctx, collection, nil); err != nil {
+			return nil, err
 		}
 	}
 
-	return db, client.Connection(), nil
+	return db, nil
 }
 
 // loadMigration loads a single migration file.
@@ -165,7 +159,7 @@ func loadMigrations(path string) ([]*arangom.Migration, error) {
 }
 
 func main() {
-	db, conn, err := initDatabase()
+	db, err := initDatabase()
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +171,6 @@ func main() {
 
 	executor, err := arangom.NewExecutor(
 		arangom.WithDatabase(db),
-		arangom.WithConnection(conn),
 		arangom.WithCollection(collection),
 		arangom.WithMigrations(migrations),
 	)

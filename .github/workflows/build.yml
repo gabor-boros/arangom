@@ -27,9 +27,9 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - '1.24'
           - '1.25'
           - '1.26'
+          - '1.27'
         os:
           - ubuntu-latest
           - macos-latest
@@ -54,6 +54,19 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
+  integration:
+    name: integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27'
+          cache: true
+      - name: Integration tests
+        run: make test-integration
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest
@@ -64,12 +77,12 @@ jobs:
       - name: Unstash test results
         uses: actions/download-artifact@v8
         with:
-          name: ubuntu-latest-1.26
+          name: ubuntu-latest-1.27
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./.coverage.out
           flags: unittests
-          name: ubuntu-latest-1.26
+          name: ubuntu-latest-1.27
           fail_ci_if_error: true

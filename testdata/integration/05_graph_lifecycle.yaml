@@ -1,0 +1,62 @@
+name: create a graph then remove its definitions
+migrations:
+  - id: 1
+    path: 0001_graph.yaml
+    operations:
+      - kind: createCollection
+        collection: people
+      - kind: createCollection
+        collection: places
+      - kind: createCollection
+        collection: cities
+      - kind: createCollection
+        collection: visits
+        options:
+          type: 3
+      - kind: createGraph
+        collection: social
+        options:
+          edgeDefinitions:
+            - collection: knows
+              from: [people]
+              to: [people]
+          orphanCollections: [places]
+      - kind: addVertexToGraph
+        collection: social
+        options:
+          collection: cities
+      - kind: addEdgeToGraph
+        collection: social
+        options:
+          collection: visits
+          constraints:
+            from: [people]
+            to: [cities]
+      - kind: removeEdgeFromGraph
+        collection: social
+        options:
+          collection: visits
+      - kind: removeVertexFromGraph
+        collection: social
+        options:
+          collection: cities
+      - kind: deleteGraph
+        collection: social
+expect:
+  graphs:
+    - name: social
+      exists: false
+  collections:
+    - name: people
+      exists: true
+    - name: places
+      exists: true
+    - name: cities
+      exists: true
+    - name: visits
+      exists: true
+    - name: knows
+      exists: true
+  migration_records:
+    - name: 0001_graph
+      status: done

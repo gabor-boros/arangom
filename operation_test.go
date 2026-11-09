@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/arangodb/go-driver"
-	"github.com/stretchr/testify/mock"
+	"github.com/arangodb/go-driver/v2/arangodb"
+	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 )
 
@@ -84,19 +84,9 @@ func TestOperationKind_UnmarshalYAML(t *testing.T) {
 			want:  OperationKindViewDelete,
 		},
 		{
-			name:  "unmarshal createFulltextIndex",
-			value: []byte(`createFulltextIndex`),
-			want:  OperationKindFulltextIndexCreate,
-		},
-		{
 			name:  "unmarshal createGeoSpatialIndex",
 			value: []byte(`createGeoSpatialIndex`),
 			want:  OperationKindGeoSpatialIndexCreate,
-		},
-		{
-			name:  "unmarshal createHashIndex",
-			value: []byte(`createHashIndex`),
-			want:  OperationKindHashIndexCreate,
 		},
 		{
 			name:  "unmarshal createInvertedIndex",
@@ -109,19 +99,14 @@ func TestOperationKind_UnmarshalYAML(t *testing.T) {
 			want:  OperationKindPersistentIndexCreate,
 		},
 		{
-			name:  "unmarshal createSkipListIndex",
-			value: []byte(`createSkipListIndex`),
-			want:  OperationKindSkipListIndexCreate,
-		},
-		{
 			name:  "unmarshal createTTLIndex",
 			value: []byte(`createTTLIndex`),
 			want:  OperationKindTTLIndexCreate,
 		},
 		{
-			name:  "unmarshal createZKDIndex",
-			value: []byte(`createZKDIndex`),
-			want:  OperationKindZKDIndexCreate,
+			name:  "unmarshal createMDIIndex",
+			value: []byte(`createMDIIndex`),
+			want:  OperationKindMDIIndexCreate,
 		},
 		{
 			name:  "unmarshal deleteIndex",
@@ -137,6 +122,26 @@ func TestOperationKind_UnmarshalYAML(t *testing.T) {
 			name:  "unmarshal deleteAnalyzer",
 			value: []byte(`deleteAnalyzer`),
 			want:  OperationKindAnalyzerDelete,
+		},
+		{
+			name:  "unmarshal createMDIPrefixedIndex",
+			value: []byte(`createMDIPrefixedIndex`),
+			want:  OperationKindMDIPrefixedIndexCreate,
+		},
+		{
+			name:  "unmarshal createVectorIndex",
+			value: []byte(`createVectorIndex`),
+			want:  OperationKindVectorIndexCreate,
+		},
+		{
+			name:  "unmarshal createSearchAliasView",
+			value: []byte(`createSearchAliasView`),
+			want:  OperationKindSearchAliasViewCreate,
+		},
+		{
+			name:  "unmarshal updateSearchAliasView",
+			value: []byte(`updateSearchAliasView`),
+			want:  OperationKindSearchAliasViewUpdate,
 		},
 		{
 			name:    "unmarshal invalid operation kind",
@@ -265,25 +270,11 @@ func TestOperation_GetOperationFn(t *testing.T) {
 			want: DeleteViewOperation,
 		},
 		{
-			name: "get createFulltextIndex operation",
-			operation: Operation{
-				Kind: OperationKindFulltextIndexCreate,
-			},
-			want: CreateFulltextIndexOperation,
-		},
-		{
 			name: "get createGeoSpatialIndex operation",
 			operation: Operation{
 				Kind: OperationKindGeoSpatialIndexCreate,
 			},
 			want: CreateGeoSpatialIndexOperation,
-		},
-		{
-			name: "get createHashIndex operation",
-			operation: Operation{
-				Kind: OperationKindHashIndexCreate,
-			},
-			want: CreateHashIndexOperation,
 		},
 		{
 			name: "get createInvertedIndex operation",
@@ -300,13 +291,6 @@ func TestOperation_GetOperationFn(t *testing.T) {
 			want: CreatePersistentIndexOperation,
 		},
 		{
-			name: "get createSkipListIndex operation",
-			operation: Operation{
-				Kind: OperationKindSkipListIndexCreate,
-			},
-			want: CreateSkipListIndexOperation,
-		},
-		{
 			name: "get createTTLIndex operation",
 			operation: Operation{
 				Kind: OperationKindTTLIndexCreate,
@@ -314,11 +298,11 @@ func TestOperation_GetOperationFn(t *testing.T) {
 			want: CreateTTLIndexOperation,
 		},
 		{
-			name: "get createZKDIndex operation",
+			name: "get createMDIIndex operation",
 			operation: Operation{
-				Kind: OperationKindZKDIndexCreate,
+				Kind: OperationKindMDIIndexCreate,
 			},
-			want: CreateZKDIndexOperation,
+			want: CreateMDIIndexOperation,
 		},
 		{
 			name: "get deleteIndex operation",
@@ -340,6 +324,34 @@ func TestOperation_GetOperationFn(t *testing.T) {
 				Kind: OperationKindAnalyzerDelete,
 			},
 			want: DeleteAnalyzerOperation,
+		},
+		{
+			name: "get createMDIPrefixedIndex operation",
+			operation: Operation{
+				Kind: OperationKindMDIPrefixedIndexCreate,
+			},
+			want: CreateMDIPrefixedIndexOperation,
+		},
+		{
+			name: "get createVectorIndex operation",
+			operation: Operation{
+				Kind: OperationKindVectorIndexCreate,
+			},
+			want: CreateVectorIndexOperation,
+		},
+		{
+			name: "get createSearchAliasView operation",
+			operation: Operation{
+				Kind: OperationKindSearchAliasViewCreate,
+			},
+			want: CreateSearchAliasViewOperation,
+		},
+		{
+			name: "get updateSearchAliasView operation",
+			operation: Operation{
+				Kind: OperationKindSearchAliasViewUpdate,
+			},
+			want: UpdateSearchAliasViewOperation,
 		},
 		{
 			name: "get unknown operation",
@@ -375,7 +387,7 @@ func TestExecuteAQLOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -398,14 +410,14 @@ func TestExecuteAQLOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Query", context.Background(), "FOR i IN @range RETURN i", map[string]any{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Query(context.Background(), "FOR i IN @range RETURN i", &arangodb.QueryOptions{BindVars: map[string]any{
 						"range": "1..10",
-					}).Return(nil, nil)
+					}}).Return(nil, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -423,14 +435,14 @@ func TestExecuteAQLOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Query", context.Background(), "FOR i IN @range RETURN i", map[string]any{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Query(context.Background(), "FOR i IN @range RETURN i", &arangodb.QueryOptions{BindVars: map[string]any{
 						"range": "1..10",
-					}).Return(nil, fmt.Errorf("error"))
+					}}).Return(nil, fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -440,7 +452,9 @@ func TestExecuteAQLOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := ExecuteAQLOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := ExecuteAQLOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("ExecuteAQLOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -453,7 +467,7 @@ func TestCreateCollectionOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -474,14 +488,15 @@ func TestCreateCollectionOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("CreateCollection", context.Background(), "test", &driver.CreateCollectionOptions{
-						WaitForSync: true,
-					}).Return(new(MockArangoCollection), nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					wfs := true
+					db.EXPECT().CreateCollectionV2(context.Background(), "test", &arangodb.CreateCollectionPropertiesV2{
+						WaitForSync: &wfs,
+					}).Return(NewMockArangoCollection(ctrl), nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -497,14 +512,15 @@ func TestCreateCollectionOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("CreateCollection", context.Background(), "test", &driver.CreateCollectionOptions{
-						WaitForSync: true,
-					}).Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					wfs := true
+					db.EXPECT().CreateCollectionV2(context.Background(), "test", &arangodb.CreateCollectionPropertiesV2{
+						WaitForSync: &wfs,
+					}).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -514,7 +530,9 @@ func TestCreateCollectionOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateCollectionOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateCollectionOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateCollectionOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -522,86 +540,169 @@ func TestCreateCollectionOperation(t *testing.T) {
 }
 
 func TestUpdateCollectionOperation(t *testing.T) {
+	keepNull := false
+	computed := []arangodb.ComputedValue{
+		{
+			Name:       "svid_pending",
+			Expression: "RETURN @doc.matched_at == null ? true : null",
+			ComputeOn: []arangodb.ComputeOn{
+				"insert",
+				"update",
+				"replace",
+			},
+			Overwrite: true,
+			KeepNull:  &keepNull,
+		},
+	}
+	emptyComputed := []arangodb.ComputedValue{}
+
+	type fields struct {
+		operation *Operation
+	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
-	// The request must carry exactly wantBody: the options are sent as they are.
-	withConnection := func(wantBody map[string]any, doErr, statusErr error) (args, *MockRequest) {
-		mockReq := new(MockRequest)
-		mockReq.On("SetBody", []any{wantBody}).Return(nil)
-
-		mockResp := new(MockResponse)
-		mockResp.On("CheckStatus", 200).Return(statusErr)
-
-		mockConn := new(MockConnection)
-		mockConn.On("NewRequest", "PUT", "/_db/testdb/_api/collection/test/properties").Return(mockReq, nil)
-		mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, doErr)
-
-		db := new(MockArangoDB)
-		db.On("Name").Return("testdb")
-
-		return args{ctx: WithConnectionContext(context.Background(), mockConn), db: db}, mockReq
-	}
-
-	computedValues := map[string]any{
-		"computedValues": []any{
-			map[string]any{
-				"name":       "svid_pending",
-				"expression": "RETURN @doc.matched_at == null ? true : null",
-				"computeOn":  []any{"insert", "update", "replace"},
-				"overwrite":  true,
-				"keepNull":   false,
-			},
-		},
-	}
-
 	tests := []struct {
-		name     string
-		options  map[string]any
-		wantBody map[string]any
-		doErr    error
-		status   error
-		noConn   bool
-		wantErr  bool
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
 	}{
 		{
-			name:     "update collection operation",
-			options:  map[string]any{"waitForSync": true},
-			wantBody: map[string]any{"waitForSync": true},
+			name: "update collection operation",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindCollectionUpdate,
+					Collection: "test",
+					Options: map[string]any{
+						"waitForSync": true,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					wfs := true
+
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().SetPropertiesV2(context.Background(), arangodb.SetCollectionPropertiesOptionsV2{
+						WaitForSync: &wfs,
+					}).Return(nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
+
+					return context.Background(), db
+				},
+			},
 		},
 		{
-			name:     "update collection operation sends computed values",
-			options:  computedValues,
-			wantBody: computedValues,
+			name: "update collection operation sends computed values",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindCollectionUpdate,
+					Collection: "test",
+					Options: map[string]any{
+						"computedValues": []any{
+							map[string]any{
+								"name":       "svid_pending",
+								"expression": "RETURN @doc.matched_at == null ? true : null",
+								"computeOn":  []any{"insert", "update", "replace"},
+								"overwrite":  true,
+								"keepNull":   false,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().SetPropertiesV2(context.Background(), arangodb.SetCollectionPropertiesOptionsV2{
+						ComputedValues: &computed,
+					}).Return(nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
+
+					return context.Background(), db
+				},
+			},
 		},
 		{
-			name:     "update collection operation sends an empty computed values list",
-			options:  map[string]any{"computedValues": []any{}},
-			wantBody: map[string]any{"computedValues": []any{}},
+			name: "update collection operation sends an empty computed values list",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindCollectionUpdate,
+					Collection: "test",
+					Options: map[string]any{
+						"computedValues": []any{},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().SetPropertiesV2(context.Background(), arangodb.SetCollectionPropertiesOptionsV2{
+						ComputedValues: &emptyComputed,
+					}).Return(nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
+
+					return context.Background(), db
+				},
+			},
 		},
 		{
-			name:     "update collection operation without options",
-			wantBody: map[string]any{},
+			name: "update collection operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindCollectionUpdate,
+					Collection: "test",
+					Options: map[string]any{
+						"waitForSync": true,
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					wfs := true
+
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().SetPropertiesV2(context.Background(), arangodb.SetCollectionPropertiesOptionsV2{
+						WaitForSync: &wfs,
+					}).Return(fmt.Errorf("error"))
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
 		},
 		{
-			name:     "update collection operation with request error",
-			options:  map[string]any{"waitForSync": true},
-			wantBody: map[string]any{"waitForSync": true},
-			doErr:    fmt.Errorf("connection refused"),
-			wantErr:  true,
-		},
-		{
-			name:     "update collection operation with HTTP error",
-			options:  map[string]any{"waitForSync": true},
-			wantBody: map[string]any{"waitForSync": true},
-			status:   fmt.Errorf("collection not found"),
-			wantErr:  true,
-		},
-		{
-			name:    "update collection operation without connection",
-			options: map[string]any{"waitForSync": true},
-			noConn:  true,
+			name: "update collection operation with collection open error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindCollectionUpdate,
+					Collection: "test",
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(nil, fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
+			},
 			wantErr: true,
 		},
 	}
@@ -610,17 +711,10 @@ func TestUpdateCollectionOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			operation := &Operation{Kind: OperationKindCollectionUpdate, Collection: "test", Options: tt.options}
-			a, mockReq := withConnection(tt.wantBody, tt.doErr, tt.status)
-			if tt.noConn {
-				a = args{ctx: context.Background(), db: new(MockArangoDB)}
-			}
-
-			if err := UpdateCollectionOperation(operation)(a.ctx, a.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := UpdateCollectionOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateCollectionOperation() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.noConn {
-				mockReq.AssertExpectations(t)
 			}
 		})
 	}
@@ -632,7 +726,7 @@ func TestDeleteCollectionOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -650,15 +744,15 @@ func TestDeleteCollectionOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().Remove(context.Background()).Return(nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -671,15 +765,15 @@ func TestDeleteCollectionOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().Remove(context.Background()).Return(fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -693,12 +787,11 @@ func TestDeleteCollectionOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("CollectionExists", context.Background(), "test").Return(true, nil)
-					db.On("Collection", context.Background(), "test").Return(new(MockArangoCollection), fmt.Errorf("error"))
-					return db
-				}(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "test", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -708,7 +801,9 @@ func TestDeleteCollectionOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := DeleteCollectionOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := DeleteCollectionOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteCollectionOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -721,7 +816,7 @@ func TestCreateGraphOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -748,20 +843,20 @@ func TestCreateGraphOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("CreateGraphV2", context.Background(), "test", &driver.CreateGraphOptions{
-						EdgeDefinitions: []driver.EdgeDefinition{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateGraph(context.Background(), "test", &arangodb.GraphDefinition{
+						EdgeDefinitions: []arangodb.EdgeDefinition{
 							{
 								Collection: "test",
 								From:       []string{"test"},
 								To:         []string{"test"},
 							},
 						},
-					}).Return(new(MockArangoGraph), nil)
+					}, (*arangodb.CreateGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -783,20 +878,20 @@ func TestCreateGraphOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("CreateGraphV2", context.Background(), "test", &driver.CreateGraphOptions{
-						EdgeDefinitions: []driver.EdgeDefinition{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateGraph(context.Background(), "test", &arangodb.GraphDefinition{
+						EdgeDefinitions: []arangodb.EdgeDefinition{
 							{
 								Collection: "test",
 								From:       []string{"test"},
 								To:         []string{"test"},
 							},
 						},
-					}).Return(new(MockArangoGraph), fmt.Errorf("error"))
+					}, (*arangodb.CreateGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -806,7 +901,9 @@ func TestCreateGraphOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateGraphOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateGraphOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateGraphOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -819,7 +916,7 @@ func TestAddVertexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -844,20 +941,20 @@ func TestAddVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("CreateVertexCollectionWithOptions", context.Background(), "collection", driver.CreateVertexCollectionOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().CreateVertexCollection(context.Background(), "collection", &arangodb.CreateVertexCollectionOptions{
 						Satellites: []string{
 							"sat1",
 							"sat2",
 						},
-					}).Return(new(MockArangoCollection), nil)
+					}).Return(arangodb.CreateVertexCollectionResponse{}, nil)
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -877,20 +974,20 @@ func TestAddVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("CreateVertexCollectionWithOptions", context.Background(), "collection", driver.CreateVertexCollectionOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().CreateVertexCollection(context.Background(), "collection", &arangodb.CreateVertexCollectionOptions{
 						Satellites: []string{
 							"sat1",
 							"sat2",
 						},
-					}).Return(new(MockArangoCollection), fmt.Errorf("error"))
+					}).Return(arangodb.CreateVertexCollectionResponse{}, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -904,12 +1001,12 @@ func TestAddVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(new(MockArangoGraph), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -919,7 +1016,9 @@ func TestAddVertexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := AddVertexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := AddVertexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("AddVertexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -932,7 +1031,7 @@ func TestRemoveVertexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -953,18 +1052,15 @@ func TestRemoveVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteVertexCollection(context.Background(), "collection", (*arangodb.DeleteVertexCollectionOptions)(nil)).Return(arangodb.DeleteVertexCollectionResponse{}, nil)
 
-					graph := new(MockArangoGraph)
-					graph.On("VertexCollection", context.Background(), "collection").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -980,18 +1076,15 @@ func TestRemoveVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteVertexCollection(context.Background(), "collection", (*arangodb.DeleteVertexCollectionOptions)(nil)).Return(arangodb.DeleteVertexCollectionResponse{}, fmt.Errorf("error"))
 
-					graph := new(MockArangoGraph)
-					graph.On("VertexCollection", context.Background(), "collection").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1005,12 +1098,12 @@ func TestRemoveVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(new(MockArangoGraph), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1027,15 +1120,15 @@ func TestRemoveVertexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("VertexCollection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteVertexCollection(context.Background(), "collection", (*arangodb.DeleteVertexCollectionOptions)(nil)).Return(arangodb.DeleteVertexCollectionResponse{}, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1045,7 +1138,9 @@ func TestRemoveVertexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := RemoveVertexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := RemoveVertexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("RemoveVertexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1059,7 +1154,7 @@ func TestAddEdgeOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1088,24 +1183,22 @@ func TestAddEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("CreateEdgeCollectionWithOptions", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().CreateEdgeDefinition(context.Background(),
 						"collection",
-						driver.VertexConstraints{
-							From: []string{"from"},
-							To:   []string{"to"},
-						},
-						driver.CreateEdgeCollectionOptions{
+						[]string{"from"},
+						[]string{"to"},
+						&arangodb.CreateEdgeDefinitionOptions{
 							Satellites: []string{"sat1", "sat2"},
 						},
-					).Return(new(MockArangoCollection), nil)
+					).Return(arangodb.CreateEdgeDefinitionResponse{}, nil)
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1129,24 +1222,22 @@ func TestAddEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("CreateEdgeCollectionWithOptions", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().CreateEdgeDefinition(context.Background(),
 						"collection",
-						driver.VertexConstraints{
-							From: []string{"from"},
-							To:   []string{"to"},
-						},
-						driver.CreateEdgeCollectionOptions{
+						[]string{"from"},
+						[]string{"to"},
+						&arangodb.CreateEdgeDefinitionOptions{
 							Satellites: []string{"sat1", "sat2"},
 						},
-					).Return(new(MockArangoCollection), fmt.Errorf("error"))
+					).Return(arangodb.CreateEdgeDefinitionResponse{}, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1160,12 +1251,12 @@ func TestAddEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(new(MockArangoGraph), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1175,7 +1266,9 @@ func TestAddEdgeOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := AddEdgeOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := AddEdgeOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("AddEdgeOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1188,7 +1281,7 @@ func TestRemoveEdgeOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1209,20 +1302,15 @@ func TestRemoveEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					constraints := driver.VertexConstraints{}
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteEdgeDefinition(context.Background(), "collection", (*arangodb.DeleteEdgeDefinitionOptions)(nil)).Return(arangodb.DeleteEdgeDefinitionResponse{}, nil)
 
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					graph := new(MockArangoGraph)
-					graph.On("EdgeCollection", context.Background(), "collection").Return(coll, constraints, nil)
-
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1238,20 +1326,15 @@ func TestRemoveEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					constraints := driver.VertexConstraints{}
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteEdgeDefinition(context.Background(), "collection", (*arangodb.DeleteEdgeDefinitionOptions)(nil)).Return(arangodb.DeleteEdgeDefinitionResponse{}, fmt.Errorf("error"))
 
-					coll := new(MockArangoCollection)
-					coll.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					graph := new(MockArangoGraph)
-					graph.On("EdgeCollection", context.Background(), "collection").Return(coll, constraints, nil)
-
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1265,12 +1348,12 @@ func TestRemoveEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(new(MockArangoGraph), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1287,19 +1370,15 @@ func TestRemoveEdgeOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("EdgeCollection", context.Background(), "collection").Return(
-						new(MockArangoCollection),
-						driver.VertexConstraints{},
-						fmt.Errorf("error"),
-					)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().DeleteEdgeDefinition(context.Background(), "collection", (*arangodb.DeleteEdgeDefinitionOptions)(nil)).Return(arangodb.DeleteEdgeDefinitionResponse{}, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1309,7 +1388,9 @@ func TestRemoveEdgeOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := RemoveEdgeOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := RemoveEdgeOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("RemoveEdgeOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1322,7 +1403,7 @@ func TestDeleteGraphOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1340,15 +1421,15 @@ func TestDeleteGraphOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("Remove", context.Background()).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().Remove(context.Background(), (*arangodb.RemoveGraphOptions)(nil)).Return(nil)
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1361,15 +1442,15 @@ func TestDeleteGraphOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					graph := new(MockArangoGraph)
-					graph.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					graph := NewMockArangoGraph(ctrl)
+					graph.EXPECT().Remove(context.Background(), (*arangodb.RemoveGraphOptions)(nil)).Return(fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(graph, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(graph, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1383,12 +1464,12 @@ func TestDeleteGraphOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Graph", context.Background(), "graph").Return(new(MockArangoGraph), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Graph(context.Background(), "graph", (*arangodb.GetGraphOptions)(nil)).Return(NewMockArangoGraph(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1397,11 +1478,13 @@ func TestDeleteGraphOperation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-		})
 
-		if err := DeleteGraphOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-			t.Errorf("DeleteGraphOperation() error = %v, wantErr %v", err, tt.wantErr)
-		}
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := DeleteGraphOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("DeleteGraphOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -1411,7 +1494,7 @@ func TestCreateViewOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1432,16 +1515,16 @@ func TestCreateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
 					cis := int64(1)
 
-					db := new(MockArangoDB)
-					db.On("CreateArangoSearchView", context.Background(), "view", &driver.ArangoSearchViewProperties{
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateArangoSearchView(context.Background(), "view", &arangodb.ArangoSearchViewProperties{
 						CleanupIntervalStep: &cis,
-					}).Return(new(MockArangoSearchView), nil)
+					}).Return(NewMockArangoSearchView(ctrl), nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1457,16 +1540,16 @@ func TestCreateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
 					cis := int64(1)
 
-					db := new(MockArangoDB)
-					db.On("CreateArangoSearchView", context.Background(), "view", &driver.ArangoSearchViewProperties{
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateArangoSearchView(context.Background(), "view", &arangodb.ArangoSearchViewProperties{
 						CleanupIntervalStep: &cis,
-					}).Return(new(MockArangoSearchView), fmt.Errorf("error"))
+					}).Return(NewMockArangoSearchView(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1475,11 +1558,13 @@ func TestCreateViewOperation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-		})
 
-		if err := CreateViewOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-			t.Errorf("CreateViewOperation() error = %v, wantErr %v", err, tt.wantErr)
-		}
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateViewOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateViewOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -1489,7 +1574,7 @@ func TestUpdateViewOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1510,22 +1595,22 @@ func TestUpdateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
 					cis := int64(1)
 
-					searchView := new(MockArangoSearchView)
-					searchView.On("SetProperties", context.Background(), driver.ArangoSearchViewProperties{
+					searchView := NewMockArangoSearchView(ctrl)
+					searchView.EXPECT().SetProperties(context.Background(), arangodb.ArangoSearchViewProperties{
 						CleanupIntervalStep: &cis,
 					}).Return(nil)
 
-					view := new(MockArangoView)
-					view.On("ArangoSearchView").Return(searchView, nil)
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().ArangoSearchView().Return(searchView, nil)
 
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(view, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(view, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1541,22 +1626,22 @@ func TestUpdateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
 					cis := int64(1)
 
-					searchView := new(MockArangoSearchView)
-					searchView.On("SetProperties", context.Background(), driver.ArangoSearchViewProperties{
+					searchView := NewMockArangoSearchView(ctrl)
+					searchView.EXPECT().SetProperties(context.Background(), arangodb.ArangoSearchViewProperties{
 						CleanupIntervalStep: &cis,
 					}).Return(fmt.Errorf("error"))
 
-					view := new(MockArangoView)
-					view.On("ArangoSearchView").Return(searchView, nil)
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().ArangoSearchView().Return(searchView, nil)
 
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(view, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(view, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1573,15 +1658,15 @@ func TestUpdateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					view := new(MockArangoView)
-					view.On("ArangoSearchView").Return(new(MockArangoSearchView), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().ArangoSearchView().Return(NewMockArangoSearchView(ctrl), fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(view, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(view, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1598,12 +1683,12 @@ func TestUpdateViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(new(MockArangoView), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(NewMockArangoView(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1612,11 +1697,13 @@ func TestUpdateViewOperation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-		})
 
-		if err := UpdateViewOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-			t.Errorf("UpdateViewOperation() error = %v, wantErr %v", err, tt.wantErr)
-		}
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := UpdateViewOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateViewOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
@@ -1626,7 +1713,7 @@ func TestDeleteViewOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1644,15 +1731,15 @@ func TestDeleteViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					view := new(MockArangoView)
-					view.On("Remove", context.Background()).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().Remove(context.Background()).Return(nil)
 
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(view, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(view, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1665,15 +1752,15 @@ func TestDeleteViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					view := new(MockArangoView)
-					view.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().Remove(context.Background()).Return(fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(view, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(view, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1687,129 +1774,12 @@ func TestDeleteViewOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("View", context.Background(), "view").Return(new(MockArangoView), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "view").Return(NewMockArangoView(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-		})
-
-		if err := DeleteViewOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-			t.Errorf("DeleteViewOperation() error = %v, wantErr %v", err, tt.wantErr)
-		}
-	}
-}
-
-func TestCreateFulltextIndexOperation(t *testing.T) {
-	type fields struct {
-		operation *Operation
-	}
-	type args struct {
-		ctx context.Context
-		db  driver.Database
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "create fulltext index operation",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindFulltextIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name":      "fulltext",
-						"minLength": 3,
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
+					return context.Background(), db
 				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureFullTextIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureFullTextIndexOptions{ //nolint:staticcheck
-							Name:      "fulltext",
-							MinLength: 3,
-						},
-					).Return(new(MockArangoIndex), false, nil)
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-		},
-		{
-			name: "create fulltext index operation with error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindFulltextIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name":      "fulltext",
-						"minLength": 3,
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureFullTextIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureFullTextIndexOptions{ //nolint:staticcheck
-							Name:      "fulltext",
-							MinLength: 3,
-						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-		{
-			name: "create fulltext index operation with collection open error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindFulltextIndexCreate,
-					Collection: "collection",
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
-
-					return db
-				}(),
 			},
 			wantErr: true,
 		},
@@ -1819,8 +1789,10 @@ func TestCreateFulltextIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateFulltextIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-				t.Errorf("CreateFulltextIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := DeleteViewOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("DeleteViewOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -1832,7 +1804,7 @@ func TestCreateGeoSpatialIndexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -1857,20 +1829,20 @@ func TestCreateGeoSpatialIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureGeoIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureGeoIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsureGeoIndexOptions{
+						&arangodb.CreateGeoIndexOptions{
 							Name: "geo",
 						},
-					).Return(new(MockArangoIndex), false, nil)
+					).Return(arangodb.IndexResponse{}, false, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -1890,20 +1862,20 @@ func TestCreateGeoSpatialIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureGeoIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureGeoIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsureGeoIndexOptions{
+						&arangodb.CreateGeoIndexOptions{
 							Name: "geo",
 						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1917,12 +1889,12 @@ func TestCreateGeoSpatialIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -1932,121 +1904,10 @@ func TestCreateGeoSpatialIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateGeoSpatialIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateGeoSpatialIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateGeoSpatialIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestCreateHashIndexOperation(t *testing.T) {
-	type fields struct {
-		operation *Operation
-	}
-	type args struct {
-		ctx context.Context
-		db  driver.Database
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "create hash index operation",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindHashIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name": "hash",
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureHashIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureHashIndexOptions{
-							Name: "hash",
-						},
-					).Return(new(MockArangoIndex), false, nil)
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-		},
-		{
-			name: "create hash index operation with error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindHashIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name": "hash",
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureHashIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureHashIndexOptions{
-							Name: "hash",
-						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-		{
-			name: "create hash index operation with collection open error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindHashIndexCreate,
-					Collection: "collection",
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
-
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if err := CreateHashIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-				t.Errorf("CreateHashIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -2058,7 +1919,7 @@ func TestCreateInvertedIndexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2079,19 +1940,19 @@ func TestCreateInvertedIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureInvertedIndex", context.Background(),
-						&driver.InvertedIndexOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureInvertedIndex(context.Background(),
+						&arangodb.InvertedIndexOptions{
 							Name: "inverted",
 						},
-					).Return(new(MockArangoIndex), false, nil)
+					).Return(arangodb.IndexResponse{}, false, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -2107,19 +1968,19 @@ func TestCreateInvertedIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureInvertedIndex", context.Background(),
-						&driver.InvertedIndexOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureInvertedIndex(context.Background(),
+						&arangodb.InvertedIndexOptions{
 							Name: "inverted",
 						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2133,12 +1994,12 @@ func TestCreateInvertedIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2148,7 +2009,9 @@ func TestCreateInvertedIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateInvertedIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateInvertedIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateInvertedIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -2161,7 +2024,7 @@ func TestCreatePersistentIndexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2186,20 +2049,20 @@ func TestCreatePersistentIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsurePersistentIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsurePersistentIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsurePersistentIndexOptions{
+						&arangodb.CreatePersistentIndexOptions{
 							Name: "persistent",
 						},
-					).Return(new(MockArangoIndex), false, nil)
+					).Return(arangodb.IndexResponse{}, false, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -2219,20 +2082,20 @@ func TestCreatePersistentIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsurePersistentIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsurePersistentIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsurePersistentIndexOptions{
+						&arangodb.CreatePersistentIndexOptions{
 							Name: "persistent",
 						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2246,12 +2109,12 @@ func TestCreatePersistentIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2261,121 +2124,10 @@ func TestCreatePersistentIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreatePersistentIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreatePersistentIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreatePersistentIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestCreateSkipListIndexOperation(t *testing.T) {
-	type fields struct {
-		operation *Operation
-	}
-	type args struct {
-		ctx context.Context
-		db  driver.Database
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "create skipList index operation",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindSkipListIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name": "skipList",
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureSkipListIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureSkipListIndexOptions{
-							Name: "skipList",
-						},
-					).Return(new(MockArangoIndex), false, nil)
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-		},
-		{
-			name: "create skipList index operation with error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindSkipListIndexCreate,
-					Collection: "collection",
-					Options: map[string]any{
-						"name": "skipList",
-						"fields": []string{
-							"field1",
-							"field2",
-						},
-					},
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureSkipListIndex", context.Background(),
-						[]string{"field1", "field2"},
-						&driver.EnsureSkipListIndexOptions{
-							Name: "skipList",
-						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
-
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-		{
-			name: "create skipList index operation with collection open error",
-			fields: fields{
-				operation: &Operation{
-					Kind:       OperationKindSkipListIndexCreate,
-					Collection: "collection",
-				},
-			},
-			args: args{
-				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
-
-					return db
-				}(),
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if err := CreateSkipListIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-				t.Errorf("CreateSkipListIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -2387,7 +2139,7 @@ func TestCreateTTLIndexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2410,18 +2162,18 @@ func TestCreateTTLIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureTTLIndex", context.Background(), "field1", 3, &driver.EnsureTTLIndexOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureTTLIndex(context.Background(), []string{"field1"}, 3, &arangodb.CreateTTLIndexOptions{
 						Name: "TTL",
 					},
-					).Return(new(MockArangoIndex), false, nil)
+					).Return(arangodb.IndexResponse{}, false, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -2439,18 +2191,18 @@ func TestCreateTTLIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureTTLIndex", context.Background(), "field1", 3, &driver.EnsureTTLIndexOptions{
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureTTLIndex(context.Background(), []string{"field1"}, 3, &arangodb.CreateTTLIndexOptions{
 						Name: "TTL",
 					},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2464,12 +2216,12 @@ func TestCreateTTLIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2479,20 +2231,22 @@ func TestCreateTTLIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateTTLIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateTTLIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateTTLIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestCreateZKDIndexOperation(t *testing.T) {
+func TestCreateMDIIndexOperation(t *testing.T) {
 	type fields struct {
 		operation *Operation
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2501,13 +2255,13 @@ func TestCreateZKDIndexOperation(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "create ZKD index operation",
+			name: "create MDI index operation",
 			fields: fields{
 				operation: &Operation{
-					Kind:       OperationKindZKDIndexCreate,
+					Kind:       OperationKindMDIIndexCreate,
 					Collection: "collection",
 					Options: map[string]any{
-						"name": "ZKD",
+						"name": "mdi",
 						"fields": []string{
 							"field1",
 							"field2",
@@ -2517,30 +2271,31 @@ func TestCreateZKDIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureZKDIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureMDIIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsureZKDIndexOptions{
-							Name: "ZKD",
+						&arangodb.CreateMDIIndexOptions{
+							Name:            "mdi",
+							FieldValueTypes: arangodb.MDIDoubleFieldType,
 						},
-					).Return(new(MockArangoIndex), false, nil)
+					).Return(arangodb.IndexResponse{}, false, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
-			name: "create ZKD index operation with error",
+			name: "create MDI index operation with error",
 			fields: fields{
 				operation: &Operation{
-					Kind:       OperationKindZKDIndexCreate,
+					Kind:       OperationKindMDIIndexCreate,
 					Collection: "collection",
 					Options: map[string]any{
-						"name": "ZKD",
+						"name": "mdi",
 						"fields": []string{
 							"field1",
 							"field2",
@@ -2550,39 +2305,40 @@ func TestCreateZKDIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("EnsureZKDIndex", context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureMDIIndex(context.Background(),
 						[]string{"field1", "field2"},
-						&driver.EnsureZKDIndexOptions{
-							Name: "ZKD",
+						&arangodb.CreateMDIIndexOptions{
+							Name:            "mdi",
+							FieldValueTypes: arangodb.MDIDoubleFieldType,
 						},
-					).Return(new(MockArangoIndex), false, fmt.Errorf("error"))
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "create ZKD index operation with collection open error",
+			name: "create MDI index operation with collection open error",
 			fields: fields{
 				operation: &Operation{
-					Kind:       OperationKindZKDIndexCreate,
+					Kind:       OperationKindMDIIndexCreate,
 					Collection: "collection",
 				},
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2592,8 +2348,10 @@ func TestCreateZKDIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateZKDIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
-				t.Errorf("CreateZKDIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateMDIIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateMDIIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -2605,7 +2363,7 @@ func TestDeleteIndexOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2626,18 +2384,15 @@ func TestDeleteIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					index := new(MockArangoIndex)
-					index.On("Remove", context.Background()).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().DeleteIndex(context.Background(), "index").Return(nil)
 
-					collection := new(MockArangoCollection)
-					collection.On("Index", context.Background(), "index").Return(index, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -2653,18 +2408,15 @@ func TestDeleteIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					index := new(MockArangoIndex)
-					index.On("Remove", context.Background()).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().DeleteIndex(context.Background(), "index").Return(fmt.Errorf("error"))
 
-					collection := new(MockArangoCollection)
-					collection.On("Index", context.Background(), "index").Return(index, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
-
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2678,12 +2430,12 @@ func TestDeleteIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(new(MockArangoCollection), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2700,15 +2452,15 @@ func TestDeleteIndexOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					collection := new(MockArangoCollection)
-					collection.On("Index", context.Background(), "index").Return(new(MockArangoIndex), fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().DeleteIndex(context.Background(), "index").Return(fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Collection", context.Background(), "collection").Return(collection, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2718,7 +2470,9 @@ func TestDeleteIndexOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := DeleteIndexOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := DeleteIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -2731,7 +2485,7 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2750,25 +2504,18 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 					},
 				},
 			},
-			args: func() args {
-				mockReq := new(MockRequest)
-				mockReq.On("SetBody", mock.Anything).Return(nil)
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().EnsureCreatedAnalyzer(context.Background(), &arangodb.AnalyzerDefinition{
+						Name: "text_en",
+						Type: "text",
+					}).Return(nil, true, nil)
 
-				mockResp := new(MockResponse)
-				mockResp.On("CheckStatus", 200, 201).Return(nil)
-
-				mockConn := new(MockConnection)
-				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
-				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
-
-				db := new(MockArangoDB)
-				db.On("Name").Return("testdb")
-
-				return args{
-					ctx: WithConnectionContext(context.Background(), mockConn),
-					db:  db,
-				}
-			}(),
+					return context.Background(), db
+				},
+			},
 		},
 		{
 			name: "create analyzer operation with properties and features",
@@ -2787,60 +2534,36 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 					},
 				},
 			},
-			args: func() args {
-				mockReq := new(MockRequest)
-				mockReq.On("SetBody", mock.Anything).Return(nil)
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().EnsureCreatedAnalyzer(context.Background(), &arangodb.AnalyzerDefinition{
+						Name: "ngram_lower",
+						Type: "pipeline",
+						Properties: arangodb.ArangoSearchAnalyzerProperties{
+							Pipeline: []arangodb.ArangoSearchAnalyzerPipeline{
+								{
+									Type: "norm",
+									Properties: arangodb.ArangoSearchAnalyzerProperties{
+										Locale: "en",
+									},
+								},
+							},
+						},
+						Features: []arangodb.ArangoSearchFeature{
+							arangodb.ArangoSearchFeatureFrequency,
+							arangodb.ArangoSearchFeatureNorm,
+							arangodb.ArangoSearchFeaturePosition,
+						},
+					}).Return(nil, false, nil)
 
-				mockResp := new(MockResponse)
-				mockResp.On("CheckStatus", 200, 201).Return(nil)
-
-				mockConn := new(MockConnection)
-				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
-				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
-
-				db := new(MockArangoDB)
-				db.On("Name").Return("testdb")
-
-				return args{
-					ctx: WithConnectionContext(context.Background(), mockConn),
-					db:  db,
-				}
-			}(),
-		},
-		{
-			name: "create analyzer operation with HTTP error",
-			fields: fields{
-				operation: &Operation{
-					Kind: OperationKindAnalyzerCreate,
-					Options: map[string]any{
-						"name": "text_en",
-						"type": "text",
-					},
+					return context.Background(), db
 				},
 			},
-			args: func() args {
-				mockReq := new(MockRequest)
-				mockReq.On("SetBody", mock.Anything).Return(nil)
-
-				mockResp := new(MockResponse)
-				mockResp.On("CheckStatus", 200, 201).Return(fmt.Errorf("bad request"))
-
-				mockConn := new(MockConnection)
-				mockConn.On("NewRequest", "POST", "/_db/testdb/_api/analyzer").Return(mockReq, nil)
-				mockConn.On("Do", mock.Anything, mockReq).Return(mockResp, nil)
-
-				db := new(MockArangoDB)
-				db.On("Name").Return("testdb")
-
-				return args{
-					ctx: WithConnectionContext(context.Background(), mockConn),
-					db:  db,
-				}
-			}(),
-			wantErr: true,
 		},
 		{
-			name: "create analyzer operation without connection",
+			name: "create analyzer operation with error",
 			fields: fields{
 				operation: &Operation{
 					Kind: OperationKindAnalyzerCreate,
@@ -2852,9 +2575,15 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					return new(MockArangoDB)
-				}(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().EnsureCreatedAnalyzer(context.Background(), &arangodb.AnalyzerDefinition{
+						Name: "text_en",
+						Type: "text",
+					}).Return(nil, false, fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2864,7 +2593,9 @@ func TestCreateAnalyzerOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := CreateAnalyzerOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateAnalyzerOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("CreateAnalyzerOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -2877,7 +2608,7 @@ func TestDeleteAnalyzerOperation(t *testing.T) {
 	}
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name    string
@@ -2898,15 +2629,15 @@ func TestDeleteAnalyzerOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					analyzer := new(MockArangoSearchAnalyzer)
-					analyzer.On("Remove", context.Background(), true).Return(nil)
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					analyzer := NewMockArangoSearchAnalyzer(ctrl)
+					analyzer.EXPECT().Remove(context.Background(), true).Return(nil)
 
-					db := new(MockArangoDB)
-					db.On("Analyzer", context.Background(), "text_en").Return(analyzer, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Analyzer(context.Background(), "text_en").Return(analyzer, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -2922,15 +2653,15 @@ func TestDeleteAnalyzerOperation(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					analyzer := new(MockArangoSearchAnalyzer)
-					analyzer.On("Remove", context.Background(), true).Return(fmt.Errorf("error"))
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					analyzer := NewMockArangoSearchAnalyzer(ctrl)
+					analyzer.EXPECT().Remove(context.Background(), true).Return(fmt.Errorf("error"))
 
-					db := new(MockArangoDB)
-					db.On("Analyzer", context.Background(), "text_en").Return(analyzer, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Analyzer(context.Background(), "text_en").Return(analyzer, nil)
 
-					return db
-				}(),
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -2940,8 +2671,509 @@ func TestDeleteAnalyzerOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := DeleteAnalyzerOperation(tt.fields.operation)(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := DeleteAnalyzerOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteAnalyzerOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateMDIPrefixedIndexOperation(t *testing.T) {
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "create MDI prefixed index operation",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindMDIPrefixedIndexCreate,
+					Collection: "collection",
+					Options: map[string]any{
+						"name": "mdi-prefixed",
+						"fields": []string{
+							"field1",
+							"field2",
+						},
+						"prefixFields": []string{"tenant"},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureMDIPrefixedIndex(context.Background(),
+						[]string{"field1", "field2"},
+						&arangodb.CreateMDIPrefixedIndexOptions{
+							CreateMDIIndexOptions: arangodb.CreateMDIIndexOptions{
+								Name:            "mdi-prefixed",
+								FieldValueTypes: arangodb.MDIDoubleFieldType,
+							},
+							PrefixFields: []string{"tenant"},
+						},
+					).Return(arangodb.IndexResponse{}, false, nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
+
+					return context.Background(), db
+				},
+			},
+		},
+		{
+			name: "create MDI prefixed index operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindMDIPrefixedIndexCreate,
+					Collection: "collection",
+					Options: map[string]any{
+						"name": "mdi-prefixed",
+						"fields": []string{
+							"field1",
+							"field2",
+						},
+						"prefixFields": []string{"tenant"},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureMDIPrefixedIndex(context.Background(),
+						[]string{"field1", "field2"},
+						&arangodb.CreateMDIPrefixedIndexOptions{
+							CreateMDIIndexOptions: arangodb.CreateMDIIndexOptions{
+								Name:            "mdi-prefixed",
+								FieldValueTypes: arangodb.MDIDoubleFieldType,
+							},
+							PrefixFields: []string{"tenant"},
+						},
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "create MDI prefixed index operation with collection open error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindMDIPrefixedIndexCreate,
+					Collection: "collection",
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateMDIPrefixedIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateMDIPrefixedIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateVectorIndexOperation(t *testing.T) {
+	dimension := 8
+	metric := arangodb.VectorMetricCosine
+	nLists := 4
+	strategy := arangodb.VectorNListsStrategyAutoSqrt
+	multiplier := 2
+	minNLists := 1
+	name := "embeddings"
+
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "create vector index operation",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindVectorIndexCreate,
+					Collection: "collection",
+					Options: map[string]any{
+						"name":   name,
+						"fields": []string{"embedding"},
+						"params": map[string]any{
+							"dimension": dimension,
+							"metric":    string(metric),
+							"nLists":    nLists,
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureVectorIndex(context.Background(),
+						[]string{"embedding"},
+						&arangodb.VectorParams{
+							Dimension: &dimension,
+							Metric:    &metric,
+							NLists:    arangodb.NewVectorNLists(nLists),
+						},
+						&arangodb.CreateVectorIndexOptions{Name: &name},
+					).Return(arangodb.IndexResponse{}, false, nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
+
+					return context.Background(), db
+				},
+			},
+		},
+		{
+			name: "create vector index operation with scaling nLists",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindVectorIndexCreate,
+					Collection: "collection",
+					Options: map[string]any{
+						"fields": []string{"embedding"},
+						"params": map[string]any{
+							"dimension": dimension,
+							"metric":    string(metric),
+							"nLists": map[string]any{
+								"strategy":   string(strategy),
+								"multiplier": multiplier,
+								"minNLists":  minNLists,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureVectorIndex(context.Background(),
+						[]string{"embedding"},
+						&arangodb.VectorParams{
+							Dimension: &dimension,
+							Metric:    &metric,
+							NLists: &arangodb.VectorNLists{
+								Scaling: &arangodb.VectorNListsScaling{
+									Strategy:   &strategy,
+									Multiplier: &multiplier,
+									MinNLists:  &minNLists,
+								},
+							},
+						},
+						&arangodb.CreateVectorIndexOptions{},
+					).Return(arangodb.IndexResponse{}, false, nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
+
+					return context.Background(), db
+				},
+			},
+		},
+		{
+			name: "create vector index operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindVectorIndexCreate,
+					Collection: "collection",
+					Options: map[string]any{
+						"fields": []string{"embedding"},
+						"params": map[string]any{
+							"dimension": dimension,
+							"metric":    string(metric),
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					collection := NewMockArangoCollection(ctrl)
+					collection.EXPECT().EnsureVectorIndex(context.Background(),
+						[]string{"embedding"},
+						&arangodb.VectorParams{
+							Dimension: &dimension,
+							Metric:    &metric,
+						},
+						&arangodb.CreateVectorIndexOptions{},
+					).Return(arangodb.IndexResponse{}, false, fmt.Errorf("error"))
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(collection, nil)
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "create vector index operation with collection open error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindVectorIndexCreate,
+					Collection: "collection",
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(context.Background(), "collection", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateVectorIndexOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateVectorIndexOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCreateSearchAliasViewOperation(t *testing.T) {
+	aliasIndexes := []arangodb.ArangoSearchAliasIndex{
+		{Collection: "docs", Index: "inv"},
+	}
+
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "create search alias view operation",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindSearchAliasViewCreate,
+					Collection: "search",
+					Options: map[string]any{
+						"indexes": []any{
+							map[string]any{"collection": "docs", "index": "inv"},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateArangoSearchAliasView(context.Background(), "search", &arangodb.ArangoSearchAliasViewProperties{
+						Indexes: aliasIndexes,
+					}).Return(nil, nil)
+
+					return context.Background(), db
+				},
+			},
+		},
+		{
+			name: "create search alias view operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindSearchAliasViewCreate,
+					Collection: "search",
+					Options: map[string]any{
+						"indexes": []any{
+							map[string]any{"collection": "docs", "index": "inv"},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().CreateArangoSearchAliasView(context.Background(), "search", &arangodb.ArangoSearchAliasViewProperties{
+						Indexes: aliasIndexes,
+					}).Return(nil, fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := CreateSearchAliasViewOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("CreateSearchAliasViewOperation() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateSearchAliasViewOperation(t *testing.T) {
+	properties := arangodb.ArangoSearchAliasViewProperties{
+		Indexes: []arangodb.ArangoSearchAliasIndex{
+			{Collection: "docs", Index: "inv"},
+		},
+	}
+
+	type fields struct {
+		operation *Operation
+	}
+	type args struct {
+		ctx context.Context
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "update search alias view operation",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindSearchAliasViewUpdate,
+					Collection: "search",
+					Options: map[string]any{
+						"indexes": []any{
+							map[string]any{"collection": "docs", "index": "inv"},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					alias := NewMockArangoSearchViewAlias(ctrl)
+					alias.EXPECT().SetProperties(context.Background(), properties).Return(nil)
+
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().ArangoSearchViewAlias().Return(alias, nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "search").Return(view, nil)
+
+					return context.Background(), db
+				},
+			},
+		},
+		{
+			name: "update search alias view operation with error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindSearchAliasViewUpdate,
+					Collection: "search",
+					Options: map[string]any{
+						"indexes": []any{
+							map[string]any{"collection": "docs", "index": "inv"},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					alias := NewMockArangoSearchViewAlias(ctrl)
+					alias.EXPECT().SetProperties(context.Background(), properties).Return(fmt.Errorf("error"))
+
+					view := NewMockArangoView(ctrl)
+					view.EXPECT().ArangoSearchViewAlias().Return(alias, nil)
+
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "search").Return(view, nil)
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "update search alias view operation with view open error",
+			fields: fields{
+				operation: &Operation{
+					Kind:       OperationKindSearchAliasViewUpdate,
+					Collection: "search",
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().View(context.Background(), "search").Return(NewMockArangoView(ctrl), fmt.Errorf("error"))
+
+					return context.Background(), db
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := UpdateSearchAliasViewOperation(tt.fields.operation)(ctx, db); (err != nil) != tt.wantErr {
+				t.Errorf("UpdateSearchAliasViewOperation() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

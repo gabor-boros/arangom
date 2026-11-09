@@ -16,6 +16,10 @@ dep: ## Download dependencies
 	$(GO_EXEC) mod tidy
 	$(GO_EXEC) mod download
 
+.PHONY: generate
+generate: ## Regenerate enums and mocks
+	$(GO_EXEC) generate ./...
+
 .PHONY: dep-update
 dep-update: ## Update dependencies
 	$(GO_EXEC) get -t -u ./...
@@ -48,6 +52,10 @@ lint: ## Run linters
 test: ## Run unit tests
 	@rm -f $(COVERAGE_OUT)
 	$(GO_TEST_COVER) -race -coverprofile=$(COVERAGE_OUT) ./...
+
+.PHONY: test-integration
+test-integration: ## Run integration tests
+	$(GO_EXEC) test -tags=integration -count=1 -race -timeout 15m ./...
 
 .PHONY: coverage.html
 coverage.html: ## Generate html coverage report from previous test run

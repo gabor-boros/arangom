@@ -1,0 +1,33 @@
+name: a failed migration stops the migrations after it
+want_error: true
+error_contains: migration failed
+migrations:
+  - id: 1
+    path: 0001_create_users.yaml
+    operations:
+      - kind: createCollection
+        collection: users
+  - id: 2
+    path: 0002_query_missing.yaml
+    operations:
+      - kind: executeAQL
+        options:
+          query: "FOR doc IN missing_collection RETURN doc"
+  - id: 3
+    path: 0003_create_extra.yaml
+    operations:
+      - kind: createCollection
+        collection: should_not_exist
+expect:
+  collections:
+    - name: users
+      exists: true
+    - name: should_not_exist
+      exists: false
+  migration_records:
+    - name: 0001_create_users
+      status: done
+    - name: 0002_query_missing
+      status: failed
+    - name: 0003_create_extra
+      status: missing

@@ -1,0 +1,16 @@
+name: create a document collection
+migrations:
+  - id: 1
+    path: 0001_create_users.yaml
+    operations:
+      - kind: createCollection
+        collection: users
+        options:
+          waitForSync: true
+expect:
+  collections:
+    - name: users
+      exists: true
+  migration_records:
+    - name: 0001_create_users
+      status: done

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/arangodb/go-driver"
-	"github.com/stretchr/testify/mock"
+	"github.com/arangodb/go-driver/v2/arangodb"
+	"go.uber.org/mock/gomock"
 )
 
 func TestMigrationStatus_UnmarshalJSON(t *testing.T) {
@@ -93,9 +93,9 @@ func TestMigrationStatus_MarshalJSON(t *testing.T) {
 			want: []byte(`"failed"`),
 		},
 		{
-			name:    "invalid",
-			s:       MigrationStatus(-1),
-			wantErr: true,
+			name: "invalid",
+			s:    MigrationStatus(-1),
+			want: []byte(`"MigrationStatus(-1)"`),
 		},
 	}
 
@@ -224,7 +224,7 @@ func TestMigration_Checksum(t *testing.T) {
 func TestMigration_Migrate(t *testing.T) {
 	type args struct {
 		ctx context.Context
-		db  driver.Database
+		db  func(*gomock.Controller) (context.Context, arangodb.Database)
 	}
 	tests := []struct {
 		name      string
@@ -239,7 +239,9 @@ func TestMigration_Migrate(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db:  new(MockArangoDB),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					return context.Background(), NewMockArangoDB(ctrl)
+				},
 			},
 		},
 		{
@@ -260,15 +262,15 @@ func TestMigration_Migrate(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
 					query := "FOR doc IN @@collection RETURN doc"
 					bindVars := map[string]any{
 						"@collection": "test",
 					}
-					db := new(MockArangoDB)
-					db.On("Query", context.Background(), query, bindVars).Return(nil, nil)
-					return db
-				}(),
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Query(context.Background(), query, &arangodb.QueryOptions{BindVars: bindVars}).Return(nil, nil)
+					return context.Background(), db
+				},
 			},
 		},
 		{
@@ -289,11 +291,11 @@ func TestMigration_Migrate(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db: func() driver.Database {
-					db := new(MockArangoDB)
-					db.On("Query", context.Background(), mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error"))
-					return db
-				}(),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().Query(context.Background(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error"))
+					return context.Background(), db
+				},
 			},
 			wantErr: true,
 		},
@@ -309,7 +311,9 @@ func TestMigration_Migrate(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				db:  new(MockArangoDB),
+				db: func(ctrl *gomock.Controller) (context.Context, arangodb.Database) {
+					return context.Background(), NewMockArangoDB(ctrl)
+				},
 			},
 			wantErr: true,
 		},
@@ -319,7 +323,9 @@ func TestMigration_Migrate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if err := tt.migration.Migrate(tt.args.ctx, tt.args.db); (err != nil) != tt.wantErr {
+			ctrl := gomock.NewController(t)
+			ctx, db := tt.args.db(ctrl)
+			if err := tt.migration.Migrate(ctx, db); (err != nil) != tt.wantErr {
 				t.Errorf("Migration.Migrate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
