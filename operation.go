@@ -177,20 +177,40 @@ func CreateCollectionOperation(o *Operation) OperationFn {
 	}
 }
 
-// UpdateCollectionOperation updates a collection.
+// UpdateCollectionOperation updates a collection's properties.
+//
+// The options are sent as the request body unchanged. Going through
+// driver.SetCollectionPropertiesOptions would drop computedValues, which its
+// JSON round-trip does not copy, and could not send an empty list to remove them.
 func UpdateCollectionOperation(o *Operation) OperationFn {
 	return func(ctx context.Context, db driver.Database) error {
-		opts := driver.SetCollectionPropertiesOptions{}
-		if err := convertToOperationOptions(o.Options, &opts); err != nil {
-			return err
+		conn := ConnectionFromContext(ctx)
+		if conn == nil {
+			return fmt.Errorf("connection is required for updateCollection operation; use WithConnection option")
 		}
 
-		coll, err := db.Collection(ctx, o.Collection)
+		body := o.Options
+		if body == nil {
+			body = map[string]any{}
+		}
+
+		reqPath := fmt.Sprintf("/_db/%s/_api/collection/%s/properties", db.Name(), o.Collection)
+		req, err := conn.NewRequest("PUT", reqPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create update collection request: %w", err)
 		}
 
-		return coll.SetProperties(ctx, opts)
+		req, err = req.SetBody(body)
+		if err != nil {
+			return fmt.Errorf("failed to set update collection request body: %w", err)
+		}
+
+		resp, err := conn.Do(ctx, req)
+		if err != nil {
+			return fmt.Errorf("failed to update collection: %w", err)
+		}
+
+		return resp.CheckStatus(200)
 	}
 }
 

@@ -60,7 +60,7 @@ func WithMigrations(migrations []*Migration) ExecutorOption {
 }
 
 // WithConnection sets the connection of the executor. This is required for
-// operations that need raw HTTP access (e.g. createAnalyzer).
+// operations that need raw HTTP access (createAnalyzer, updateCollection).
 func WithConnection(conn driver.Connection) ExecutorOption {
 	return func(e *Executor) error {
 		e.conn = conn
