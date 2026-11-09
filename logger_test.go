@@ -4,45 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
+	"go.uber.org/mock/gomock"
 )
-
-type MockLogger struct {
-	mock.Mock
-}
-
-func (m *MockLogger) Info(args ...any) {
-	m.Called(args)
-}
-
-func (m *MockLogger) Infof(format string, args ...any) {
-	m.Called(format, args)
-}
-
-func (m *MockLogger) Error(args ...any) {
-	m.Called(args)
-}
-
-func (m *MockLogger) Errorf(format string, args ...any) {
-	m.Called(format, args)
-}
-
-func (m *MockLogger) Fatal(args ...any) {
-	m.Called(args)
-}
-
-func (m *MockLogger) Fatalf(format string, args ...any) {
-	m.Called(format, args)
-}
-
-type MockLogWriter struct {
-	mock.Mock
-}
-
-func (m *MockLogWriter) WriteString(s string) (n int, err error) {
-	args := m.Called(s)
-	return args.Int(0), args.Error(1)
-}
 
 func TestNewDefaultLogger(t *testing.T) {
 	t.Parallel()
@@ -66,8 +29,9 @@ func TestNewDefaultLogger(t *testing.T) {
 func TestDefaultLogger_Info(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[INFO] test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[INFO] test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,
@@ -79,8 +43,9 @@ func TestDefaultLogger_Info(t *testing.T) {
 func TestDefaultLogger_Infof(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[INFO] formatted: test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[INFO] formatted: test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,
@@ -92,8 +57,9 @@ func TestDefaultLogger_Infof(t *testing.T) {
 func TestDefaultLogger_Error(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[ERROR] test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[ERROR] test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,
@@ -105,8 +71,9 @@ func TestDefaultLogger_Error(t *testing.T) {
 func TestDefaultLogger_Errorf(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[ERROR] formatted: test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[ERROR] formatted: test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,
@@ -118,8 +85,9 @@ func TestDefaultLogger_Errorf(t *testing.T) {
 func TestDefaultLogger_Fatal(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[FATAL] test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[FATAL] test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,
@@ -136,8 +104,9 @@ func TestDefaultLogger_Fatal(t *testing.T) {
 func TestDefaultLogger_Fatalf(t *testing.T) {
 	t.Parallel()
 
-	w := new(MockLogWriter)
-	w.On("WriteString", "[FATAL] formatted: test\n").Return(0, nil)
+	ctrl := gomock.NewController(t)
+	w := NewMockLogWriter(ctrl)
+	w.EXPECT().WriteString("[FATAL] formatted: test\n").Return(0, nil)
 
 	l := &DefaultLogger{
 		Writer: w,

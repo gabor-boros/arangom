@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arangodb/go-driver"
+	"github.com/arangodb/go-driver/v2/arangodb"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,8 +28,6 @@ const (
 )
 
 var (
-	// ErrInvalidMigrationStatus is returned when an invalid migration status is provided.
-	ErrInvalidMigrationStatus = fmt.Errorf("invalid migration status")
 	// ErrNoMigrations is returned when no migrations are provided.
 	ErrNoMigrations = fmt.Errorf("no migrations provided")
 	// ErrMigrationFailed is returned when a migration has failed.
@@ -37,43 +35,9 @@ var (
 )
 
 // MigrationStatus is the status of a migration.
+//
+//go:generate go tool enumer -type=MigrationStatus -json -trimprefix=MigrationStatus -transform=lower -output=migrationstatus_enumer.go
 type MigrationStatus int
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (s *MigrationStatus) UnmarshalJSON(status []byte) error {
-	switch string(status) {
-	case `"missing"`:
-		*s = MigrationStatusMissing
-		return nil
-	case `"running"`:
-		*s = MigrationStatusRunning
-		return nil
-	case `"done"`:
-		*s = MigrationStatusDone
-		return nil
-	case `"failed"`:
-		*s = MigrationStatusFailed
-		return nil
-	default:
-		return fmt.Errorf("%w: %s", ErrInvalidMigrationStatus, status)
-	}
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (s *MigrationStatus) MarshalJSON() ([]byte, error) {
-	switch *s {
-	case MigrationStatusMissing:
-		return []byte(`"missing"`), nil
-	case MigrationStatusRunning:
-		return []byte(`"running"`), nil
-	case MigrationStatusDone:
-		return []byte(`"done"`), nil
-	case MigrationStatusFailed:
-		return []byte(`"failed"`), nil
-	default:
-		return nil, fmt.Errorf("%w: %d", ErrInvalidMigrationStatus, s)
-	}
-}
 
 // MigrationItem represents a migration in the collection.
 type MigrationItem struct {
@@ -124,7 +88,7 @@ func (m *Migration) Checksum() (string, error) {
 }
 
 // Migrate executes the operations registered to the migration.
-func (m *Migration) Migrate(ctx context.Context, db driver.Database) error {
+func (m *Migration) Migrate(ctx context.Context, db arangodb.Database) error {
 	for _, operation := range m.Operations {
 		opFn, err := operation.GetOperationFn()
 		if err != nil {
@@ -142,7 +106,7 @@ func (m *Migration) Migrate(ctx context.Context, db driver.Database) error {
 // saveMigration saves the migration to the database. The migration is saved
 // as a document in the given collection. If the document already exists, the
 // migration is updated.
-func saveMigration(ctx context.Context, coll driver.Collection, migration *Migration) {
+func saveMigration(ctx context.Context, coll arangodb.Collection, migration *Migration) {
 	checksum, err := migration.Checksum()
 	if err != nil {
 		panic(err)
@@ -173,7 +137,7 @@ func saveMigration(ctx context.Context, coll driver.Collection, migration *Migra
 }
 
 // fetchMigrationStatus fetches the status of the migration from the database.
-func fetchMigrationStatus(ctx context.Context, coll driver.Collection, migration *Migration) {
+func fetchMigrationStatus(ctx context.Context, coll arangodb.Collection, migration *Migration) {
 	checksum, err := migration.Checksum()
 	if err != nil {
 		panic(err)

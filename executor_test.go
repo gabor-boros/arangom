@@ -2,20 +2,39 @@ package arangom
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/arangodb/go-driver"
-	"github.com/stretchr/testify/mock"
+	"github.com/arangodb/go-driver/v2/arangodb"
+	"go.uber.org/mock/gomock"
 )
 
+func expectMigrationDocument(ctx context.Context, coll *MockArangoCollection, key string, item *MigrationItem) {
+	coll.EXPECT().ReadDocument(ctx, key, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, result any) (arangodb.DocumentMeta, error) {
+			encoded, err := json.Marshal(item)
+			if err != nil {
+				return arangodb.DocumentMeta{}, err
+			}
+			if err := json.Unmarshal(encoded, result); err != nil {
+				return arangodb.DocumentMeta{}, err
+			}
+
+			return arangodb.DocumentMeta{}, nil
+		},
+	)
+}
+
 func TestWithDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	db := NewMockArangoDB(ctrl)
 	type fields struct {
 		executor *Executor
 	}
 	type args struct {
-		db driver.Database
+		db arangodb.Database
 	}
 	tests := []struct {
 		name    string
@@ -30,10 +49,10 @@ func TestWithDatabase(t *testing.T) {
 				executor: new(Executor),
 			},
 			args: args{
-				db: new(MockArangoDB),
+				db: db,
 			},
 			want: &Executor{
-				db: new(MockArangoDB),
+				db: db,
 			},
 		},
 		{
@@ -192,6 +211,8 @@ func TestWithMigrations(t *testing.T) {
 }
 
 func TestWithLogger(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	logger := NewMockLogger(ctrl)
 	type fields struct {
 		executor *Executor
 	}
@@ -211,10 +232,10 @@ func TestWithLogger(t *testing.T) {
 				executor: new(Executor),
 			},
 			args: args{
-				logger: new(MockLogger),
+				logger: logger,
 			},
 			want: &Executor{
-				logger: new(MockLogger),
+				logger: logger,
 			},
 		},
 		{
@@ -246,6 +267,9 @@ func TestWithLogger(t *testing.T) {
 }
 
 func TestNewExecutor(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	db := NewMockArangoDB(ctrl)
+	logger := NewMockLogger(ctrl)
 	type args struct {
 		opts []ExecutorOption
 	}
@@ -259,25 +283,25 @@ func TestNewExecutor(t *testing.T) {
 			name: "with options",
 			args: args{
 				opts: []ExecutorOption{
-					WithDatabase(new(MockArangoDB)),
+					WithDatabase(db),
 					WithCollection("test"),
 					WithMigrations([]*Migration{
 						{
 							ID: 123,
 						},
 					}),
-					WithLogger(new(MockLogger)),
+					WithLogger(logger),
 				},
 			},
 			want: &Executor{
-				db:         new(MockArangoDB),
+				db:         db,
 				collection: "test",
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: new(MockLogger),
+				logger: logger,
 			},
 		},
 		{
@@ -291,7 +315,7 @@ func TestNewExecutor(t *testing.T) {
 							ID: 123,
 						},
 					}),
-					WithLogger(new(MockLogger)),
+					WithLogger(logger),
 				},
 			},
 			wantErr: true,
@@ -306,7 +330,7 @@ func TestNewExecutor(t *testing.T) {
 							ID: 123,
 						},
 					}),
-					WithLogger(new(MockLogger)),
+					WithLogger(logger),
 				},
 			},
 			wantErr: true,
@@ -315,33 +339,33 @@ func TestNewExecutor(t *testing.T) {
 			name: "with no collection",
 			args: args{
 				opts: []ExecutorOption{
-					WithDatabase(new(MockArangoDB)),
+					WithDatabase(db),
 					WithMigrations([]*Migration{
 						{
 							ID: 123,
 						},
 					}),
-					WithLogger(new(MockLogger)),
+					WithLogger(logger),
 				},
 			},
 			want: &Executor{
-				db:         new(MockArangoDB),
+				db:         db,
 				collection: DefaultMigrationCollection,
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: new(MockLogger),
+				logger: logger,
 			},
 		},
 		{
 			name: "with no migrations",
 			args: args{
 				opts: []ExecutorOption{
-					WithDatabase(new(MockArangoDB)),
+					WithDatabase(db),
 					WithCollection("test"),
-					WithLogger(new(MockLogger)),
+					WithLogger(logger),
 				},
 			},
 			wantErr: true,
@@ -366,10 +390,10 @@ func TestNewExecutor(t *testing.T) {
 
 func TestExecutor_Execute(t *testing.T) {
 	type fields struct {
-		db         driver.Database
+		db         func(*gomock.Controller) arangodb.Database
 		collection string
 		migrations []*Migration
-		logger     Logger
+		logger     func(*gomock.Controller) Logger
 	}
 	type args struct {
 		ctx context.Context
@@ -383,34 +407,34 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute migrations",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
 					checksum := "a4af0f02f3ed717e72f74da096cf4a3e36af3bdae4515fdd664f316163341ef2"
 
-					coll := new(MockArangoCollection)
-					coll.On("DocumentExists", ctx, checksum).Return(false, nil)
-					coll.On("CreateDocument", ctx, mock.Anything).Return(driver.DocumentMeta{}, nil)
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().DocumentExists(ctx, checksum).Return(false, nil).MinTimes(1)
+					coll.EXPECT().CreateDocument(ctx, gomock.Any()).Return(arangodb.CollectionDocumentCreateResponse{}, nil).MinTimes(1)
 
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
 
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
-					logger.On("Infof", "[%d] fetching migration status", []any{123}).Return()
-					logger.On("Infof", "[%d] executing migration", []any{123}).Return()
-					logger.On("Infof", "[%d] migration executed successfully", []any{123}).Return()
-					logger.On("Info", []any{"all migrations executed successfully"}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
+					logger.EXPECT().Infof("[%d] fetching migration status", 123).Return()
+					logger.EXPECT().Infof("[%d] executing migration", 123).Return()
+					logger.EXPECT().Infof("[%d] migration executed successfully", 123).Return()
+					logger.EXPECT().Info("all migrations executed successfully").Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -419,23 +443,23 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute on invalid collection",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(nil, fmt.Errorf("error"))
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(nil, fmt.Errorf("error"))
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -445,27 +469,22 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute without migrations",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
-					checksum := "a4af0f02f3ed717e72f74da096cf4a3e36af3bdae4515fdd664f316163341ef2"
 
-					coll := new(MockArangoCollection)
-					coll.On("DocumentExists", ctx, checksum).Return(false, nil)
-					coll.On("CreateDocument", ctx, mock.Anything).Return(driver.DocumentMeta{}, nil)
-
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(NewMockArangoCollection(ctrl), nil)
 
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: make([]*Migration, 0),
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
-					logger.On("Info", []any{"all migrations executed successfully"}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
+					logger.EXPECT().Info("all migrations executed successfully").Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -474,20 +493,20 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute with migration error",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
 					checksum := "99a2534f50213b0508bddd9e0b1d908d381adfc8e9c1897a2df9a7cd9ec1bb4f"
 
-					coll := new(MockArangoCollection)
-					coll.On("DocumentExists", ctx, checksum).Return(false, nil)
-					coll.On("CreateDocument", ctx, mock.Anything).Return(driver.DocumentMeta{}, nil)
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().DocumentExists(ctx, checksum).Return(false, nil).MinTimes(1)
+					coll.EXPECT().CreateDocument(ctx, gomock.Any()).Return(arangodb.CollectionDocumentCreateResponse{}, nil).MinTimes(1)
 
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(coll, nil)
-					db.On("Query", ctx, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error"))
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
+					db.EXPECT().Query(ctx, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error"))
 
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: []*Migration{
 					{
@@ -505,14 +524,14 @@ func TestExecutor_Execute(t *testing.T) {
 						},
 					},
 				},
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
-					logger.On("Infof", "[%d] fetching migration status", []any{123}).Return()
-					logger.On("Infof", "[%d] executing migration", []any{123}).Return()
-					logger.On("Errorf", "[%d] migration failed; err=%s", []any{123, "migration failed: error"}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
+					logger.EXPECT().Infof("[%d] fetching migration status", 123).Return()
+					logger.EXPECT().Infof("[%d] executing migration", 123).Return()
+					logger.EXPECT().Errorf("[%d] migration failed; err=%s", 123, "migration failed: error").Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -522,36 +541,36 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute applied migration",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
 					checksum := "a4af0f02f3ed717e72f74da096cf4a3e36af3bdae4515fdd664f316163341ef2"
 
-					coll := new(MockArangoCollection)
-					coll.On("DocumentExists", ctx, checksum).Return(true, nil)
-					coll.On("ReadDocument", ctx, checksum, mock.Anything).Return(&MigrationItem{
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().DocumentExists(ctx, checksum).Return(true, nil)
+					expectMigrationDocument(ctx, coll, checksum, &MigrationItem{
 						Key:    "123",
 						Status: MigrationStatusDone,
-					}, driver.DocumentMeta{}, nil)
+					})
 
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
 
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
-					logger.On("Infof", "[%d] fetching migration status", []any{123}).Return()
-					logger.On("Infof", "[%d] migration already executed", []any{123}).Return()
-					logger.On("Info", []any{"all migrations executed successfully"}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
+					logger.EXPECT().Infof("[%d] fetching migration status", 123).Return()
+					logger.EXPECT().Infof("[%d] migration already executed", 123).Return()
+					logger.EXPECT().Info("all migrations executed successfully").Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -560,35 +579,35 @@ func TestExecutor_Execute(t *testing.T) {
 		{
 			name: "execute failed migration",
 			fields: fields{
-				db: func() driver.Database {
+				db: func(ctrl *gomock.Controller) arangodb.Database {
 					ctx := context.Background()
 					checksum := "a4af0f02f3ed717e72f74da096cf4a3e36af3bdae4515fdd664f316163341ef2"
 
-					coll := new(MockArangoCollection)
-					coll.On("DocumentExists", ctx, checksum).Return(true, nil)
-					coll.On("ReadDocument", ctx, checksum, mock.Anything).Return(&MigrationItem{
+					coll := NewMockArangoCollection(ctrl)
+					coll.EXPECT().DocumentExists(ctx, checksum).Return(true, nil)
+					expectMigrationDocument(ctx, coll, checksum, &MigrationItem{
 						Key:    "123",
 						Status: MigrationStatusFailed,
-					}, driver.DocumentMeta{}, nil)
+					})
 
-					db := new(MockArangoDB)
-					db.On("Collection", ctx, "test").Return(coll, nil)
+					db := NewMockArangoDB(ctrl)
+					db.EXPECT().GetCollection(ctx, "test", (*arangodb.GetCollectionOptions)(nil)).Return(coll, nil)
 
 					return db
-				}(),
+				},
 				collection: "test",
 				migrations: []*Migration{
 					{
 						ID: 123,
 					},
 				},
-				logger: func() Logger {
-					logger := new(MockLogger)
-					logger.On("Infof", "connecting to the migration collection \"%s\"", []any{"test"}).Return()
-					logger.On("Infof", "[%d] fetching migration status", []any{123}).Return()
-					logger.On("Errorf", "[%d] migration failed", []any{123}).Return()
+				logger: func(ctrl *gomock.Controller) Logger {
+					logger := NewMockLogger(ctrl)
+					logger.EXPECT().Infof("connecting to the migration collection \"%s\"", "test").Return()
+					logger.EXPECT().Infof("[%d] fetching migration status", 123).Return()
+					logger.EXPECT().Errorf("[%d] migration failed", 123).Return()
 					return logger
-				}(),
+				},
 			},
 			args: args{
 				ctx: context.Background(),
@@ -601,11 +620,12 @@ func TestExecutor_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			ctrl := gomock.NewController(t)
 			e := &Executor{
-				db:         tt.fields.db,
+				db:         tt.fields.db(ctrl),
 				collection: tt.fields.collection,
 				migrations: tt.fields.migrations,
-				logger:     tt.fields.logger,
+				logger:     tt.fields.logger(ctrl),
 			}
 
 			if err := e.Execute(tt.args.ctx); (err != nil) != tt.wantErr {

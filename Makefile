@@ -16,6 +16,10 @@ dep: ## Download dependencies
 	$(GO_EXEC) mod tidy
 	$(GO_EXEC) mod download
 
+.PHONY: generate
+generate: ## Regenerate enums and mocks
+	$(GO_EXEC) generate ./...
+
 .PHONY: dep-update
 dep-update: ## Update dependencies
 	$(GO_EXEC) get -t -u ./...

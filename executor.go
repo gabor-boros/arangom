@@ -3,28 +3,15 @@ package arangom
 import (
 	"context"
 
-	"github.com/arangodb/go-driver"
+	"github.com/arangodb/go-driver/v2/arangodb"
 	"github.com/pkg/errors"
 )
-
-type connCtxKey struct{}
-
-// WithConnectionContext returns a context with the given connection stored in it.
-func WithConnectionContext(ctx context.Context, conn driver.Connection) context.Context {
-	return context.WithValue(ctx, connCtxKey{}, conn)
-}
-
-// ConnectionFromContext retrieves the connection from the context, or nil if not set.
-func ConnectionFromContext(ctx context.Context) driver.Connection {
-	conn, _ := ctx.Value(connCtxKey{}).(driver.Connection)
-	return conn
-}
 
 // ExecutorOption is a function that sets configuration options on Executor.
 type ExecutorOption func(*Executor) error
 
 // WithDatabase sets the database of the executor.
-func WithDatabase(db driver.Database) ExecutorOption {
+func WithDatabase(db arangodb.Database) ExecutorOption {
 	return func(e *Executor) error {
 		if db == nil {
 			return ErrNoDatabase
@@ -59,15 +46,6 @@ func WithMigrations(migrations []*Migration) ExecutorOption {
 	}
 }
 
-// WithConnection sets the connection of the executor. This is required for
-// operations that need raw HTTP access (createAnalyzer, updateCollection).
-func WithConnection(conn driver.Connection) ExecutorOption {
-	return func(e *Executor) error {
-		e.conn = conn
-		return nil
-	}
-}
-
 // WithLogger sets the logger of the executor.
 func WithLogger(logger Logger) ExecutorOption {
 	return func(e *Executor) error {
@@ -82,8 +60,7 @@ func WithLogger(logger Logger) ExecutorOption {
 
 // Executor executes migrations on a database in order.
 type Executor struct {
-	db         driver.Database
-	conn       driver.Connection
+	db         arangodb.Database
 	collection string
 	migrations []*Migration
 	logger     Logger
@@ -92,7 +69,7 @@ type Executor struct {
 // Execute executes the migrations on the database.
 func (e *Executor) Execute(ctx context.Context) error {
 	e.logger.Infof("connecting to the migration collection \"%s\"", e.collection)
-	coll, err := e.db.Collection(ctx, e.collection)
+	coll, err := e.db.GetCollection(ctx, e.collection, nil)
 	if err != nil {
 		return err
 	}
@@ -116,12 +93,7 @@ func (e *Executor) Execute(ctx context.Context) error {
 		migration.Status = MigrationStatusRunning
 		saveMigration(ctx, coll, migration)
 
-		migrateCtx := ctx
-		if e.conn != nil {
-			migrateCtx = WithConnectionContext(ctx, e.conn)
-		}
-
-		if err := migration.Migrate(migrateCtx, e.db); err != nil {
+		if err := migration.Migrate(ctx, e.db); err != nil {
 			migration.Status = MigrationStatusFailed
 			saveMigration(ctx, coll, migration)
 
