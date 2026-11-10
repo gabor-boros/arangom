@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0]
+## [0.4.2] - 2026-11-10
+
+**Bug Fixes**
+
+- Ensure homebrew packaging works ([da679b4](https://github.com/gabor-boros/arangom/commit/da679b44ebd14659f6ab900edcc32f6a315362a6))
+
+## [0.4.1] - 2026-11-09
+
+**Bug Fixes**
+
+- Drop formula-only head from the homebrew cask (#14) ([3f6ca92](https://github.com/gabor-boros/arangom/commit/3f6ca9205d11acf3c55929f153e7b5545be82357))
+- Send updateCollection options as raw request body (#13) ([32c7fba](https://github.com/gabor-boros/arangom/commit/32c7fba55cd07661a94a2fa7883bec2c0c02bd8f))
+
+**Documentation**
+
+- Update install instructions ([bbfd3f2](https://github.com/gabor-boros/arangom/commit/bbfd3f2b8d67e23b8992e20264e57d2a2b7b1fcb))
+
+## [0.4.0] - 2026-07-06
 
 **Bug Fixes**
 
