@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-11-10
+
+**Bug Fixes**
+
+- Ensure homebrew packaging works ([4536457](https://github.com/gabor-boros/arangom/commit/4536457243893dc3c48a82af4579ebe7c3bc3682))
+
+## [0.5.0] - 2026-11-09
+
+**Refactor**
+
+- Upgrade dependencies and arango driver to v2 (#15) ([b189f63](https://github.com/gabor-boros/arangom/commit/b189f637fcce5847cc85f45df8d6754e88210a3a))
+
 ## [0.4.2] - 2026-11-10
 
 **Bug Fixes**
