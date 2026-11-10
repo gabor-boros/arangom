@@ -31,25 +31,23 @@ milestones:
 changelog:
   disable: true
 homebrew_casks:
-  - repository:
+  - name: arangom
+    repository:
       owner: gabor-boros
       name: homebrew-brew
+    directory: Casks
     commit_author:
       name: "Gabor Boros"
       email: gabor.brs@gmail.com
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
     homepage: "https://github.com/gabor-boros/arangom"
-    description: "Run ArangoDB migrations with ease."
-    license: "MIT"
-    url:
-      verified: "github.com/gabor-boros/arangom/"
+    description: "Run ArangoDB migrations with ease"
+    skip_upload: auto
+    binaries:
+      - arangom
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/arangom"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/arangom"]
           end
-    custom_block: |
-      livecheck do
-        url "https://github.com/gabor-boros/arangom/releases"
-        regex(/^v(\d+(?:\.\d+)+)$/i)
-      end
